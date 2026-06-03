@@ -42,28 +42,11 @@ function PlayerAutocomplete({ value, onChange, disabled, placeholder, inputType 
   const [query,  setQuery]  = useState(value ?? '');
   const [open,   setOpen]   = useState(false);
   const [active, setActive] = useState(-1);
-  const [dropPos, setDropPos] = useState({ top: 0, left: 0, width: 0 });
   const inputRef = useRef(null);
   const listRef  = useRef(null);
   const noPlayers = PLAYERS.length === 0;
 
   useEffect(() => { setQuery(value ?? ''); }, [value]);
-
-  // Recalculate dropdown position whenever it opens
-  useEffect(() => {
-    if (!open || !inputRef.current) return;
-    const update = () => {
-      const r = inputRef.current?.getBoundingClientRect();
-      if (r) setDropPos({ top: r.bottom + window.scrollY + 4, left: r.left + window.scrollX, width: r.width });
-    };
-    update();
-    window.addEventListener('scroll', update, true);
-    window.addEventListener('resize', update);
-    return () => {
-      window.removeEventListener('scroll', update, true);
-      window.removeEventListener('resize', update);
-    };
-  }, [open]);
 
   const results = useMemo(() => {
     const q = normalise(query);
@@ -123,12 +106,18 @@ function PlayerAutocomplete({ value, onChange, disabled, placeholder, inputType 
 
   const showDropdown = open && query.length >= 1;
 
+  // Calculate position from input element directly during render (position: fixed = viewport coords)
+  const rect = showDropdown ? inputRef.current?.getBoundingClientRect() : null;
+  const dropStyle = rect
+    ? { position: 'fixed', top: rect.bottom + 4, left: rect.left, width: rect.width, zIndex: 9999 }
+    : { position: 'fixed', top: -9999, left: 0, width: 0 };
+
   const dropdown = showDropdown ? createPortal(
     <ul
       ref={listRef}
       className="ac-dropdown"
       role="listbox"
-      style={{ position: 'absolute', top: dropPos.top, left: dropPos.left, width: dropPos.width }}
+      style={dropStyle}
     >
       {results.length === 0 ? (
         <li className="ac-empty">
