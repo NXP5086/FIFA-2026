@@ -199,6 +199,18 @@ function SchedulePage({ activeUserId, predictions, onPredict, matches: MATCHES, 
       {phase === "GROUP" && byMatchday.length === 0 && <div className="empty">No matches match your filters</div>}
       {phase === "KO" && byKoStage.length === 0 && <div className="empty">No matches match your filters</div>}
 
+      {phase === "KO" && MATCHES.some(m => isKnockout(m) && (m.home === "TBD" || m.away === "TBD")) && (
+        <div className="bracket-notice">
+          <span className="bracket-notice-icon">⏳</span>
+          <div>
+            <strong>Knockout bracket isn't set yet.</strong> It's determined by who finishes 1st, 2nd,
+            and best 3rd in each group — which won't be known until the group stage ends on
+            <strong> 28 June IST</strong>. Cards showing "Awaiting bracket" will unlock for predictions
+            once the real teams are confirmed.
+          </div>
+        </div>
+      )}
+
       {phase === "GROUP" && byMatchday.map(([mdNum, dateGroups]) => {
         const totalInMd = dateGroups.reduce((acc, [, ms]) => acc + ms.length, 0);
         const finalInMd = dateGroups.reduce(

@@ -52,8 +52,7 @@ function LeaderboardPage({ activeUserId, predictions, awardPredictions, matches:
         picks,
         awardsHit,
         awardsPts,
-        acc: picks > 0 ? Math.round(((exact + outcome) / picks) * 100) : 0,
-        delta: ({ u1: 1, u2: -2, u3: 0, u4: 3, u5: -1, u6: 0, u7: 2, u8: -1, u9: 4 })[u.id] || 0
+        acc: picks > 0 ? Math.round(((exact + outcome) / picks) * 100) : 0
       };
     }).sort((a, b) => b.pts - a.pts || b.exact - a.exact || b.outcome - a.outcome);
   }, [predictions, awardPredictions, MATCHES]);
@@ -159,12 +158,7 @@ function LeaderboardPage({ activeUserId, predictions, awardPredictions, matches:
                 key={r.user.id}
                 className={`rank-row ${r.user.id === activeUserId ? "me" : ""}`}
               >
-                <div className="rank-num">
-                  {i + 1}
-                  <span className={`delta ${r.delta > 0 ? "up" : r.delta < 0 ? "down" : "flat"}`}>
-                    {r.delta > 0 ? `▲${r.delta}` : r.delta < 0 ? `▼${Math.abs(r.delta)}` : "—"}
-                  </span>
-                </div>
+                <div className="rank-num">{i + 1}</div>
                 <div className="rank-user">
                   <Avatar user={r.user} />
                   <div>
