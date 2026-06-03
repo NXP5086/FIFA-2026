@@ -60,13 +60,7 @@ export function AuthProvider({ children }) {
   }
 
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      loadOrCreateProfile(session?.user ?? null);
-    });
-
-    // Subscribe to auth changes (magic link callback, sign-out, etc.)
+    // Subscribe first so we don't miss any events
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         setSession(session);
@@ -74,6 +68,24 @@ export function AuthProvider({ children }) {
         loadOrCreateProfile(session?.user ?? null);
       }
     );
+
+    // Handle PKCE magic link — URL contains ?code= after redirect
+    const code = new URLSearchParams(window.location.search).get('code');
+    if (code) {
+      supabase.auth.exchangeCodeForSession(code).then(({ error }) => {
+        // Clean the code out of the URL bar
+        window.history.replaceState({}, '', window.location.pathname);
+        if (error) setAuthError(error.message);
+        // onAuthStateChange fires automatically after successful exchange
+      });
+    } else {
+      // No code — check for an existing session (page refresh etc.)
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        setSession(session);
+        loadOrCreateProfile(session?.user ?? null);
+      });
+    }
+
     return () => subscription.unsubscribe();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
