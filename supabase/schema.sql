@@ -122,8 +122,14 @@ CREATE TABLE IF NOT EXISTS public.match_results (
   away_score   INTEGER,
   live_minute  INTEGER,
   ending       TEXT CHECK (ending IN ('NT', 'ET', 'PENS')),
+  home_code    TEXT,                      -- real team code once bracket is set (e.g. 'ARG')
+  away_code    TEXT,                      -- real team code once bracket is set (e.g. 'FRA')
   updated_at   TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- If table already exists, add the new columns safely
+ALTER TABLE public.match_results ADD COLUMN IF NOT EXISTS home_code TEXT;
+ALTER TABLE public.match_results ADD COLUMN IF NOT EXISTS away_code TEXT;
 
 ALTER TABLE public.match_results ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "match_results_select" ON public.match_results;

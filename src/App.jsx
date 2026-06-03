@@ -16,33 +16,43 @@ import {
   upsertAwardPrediction,
 } from './lib/predictions.js';
 
-// Merge static MATCHES with live results from Supabase
+// Merge static MATCHES with live results + bracket team codes from Supabase
 function buildEnrichedMatches(matches, results) {
   return matches.map(m => {
     const r = results[m.id];
-    if (!r || r.status === 'upcoming') return m;
 
-    const ko = isKnockout(m);
+    // Auto-populate knockout bracket: swap TBD for real team codes from DB
+    // once the API knows who qualified (happens after group stage ~June 27)
+    let enriched = m;
+    if (r) {
+      const newHome = r.home_code && r.home_code !== 'TBD' && m.home === 'TBD' ? r.home_code : m.home;
+      const newAway = r.away_code && r.away_code !== 'TBD' && m.away === 'TBD' ? r.away_code : m.away;
+      if (newHome !== m.home || newAway !== m.away) {
+        enriched = { ...m, home: newHome, away: newAway };
+      }
+    }
+
+    if (!r || r.status === 'upcoming') return enriched;
+
+    const ko   = isKnockout(enriched);
     const home = r.home_score ?? 0;
     const away = r.away_score ?? 0;
 
     if (r.status === 'final') {
       return {
-        ...m,
-        result: ko
-          ? { score: [home, away], ending: r.ending ?? 'NT' }
-          : [home, away],
+        ...enriched,
+        result: ko ? { score: [home, away], ending: r.ending ?? 'NT' } : [home, away],
         live: null,
       };
     }
     if (r.status === 'live') {
       return {
-        ...m,
+        ...enriched,
         result: null,
         live: { score: [home, away], minute: r.live_minute ?? 0 },
       };
     }
-    return m;
+    return enriched;
   });
 }
 

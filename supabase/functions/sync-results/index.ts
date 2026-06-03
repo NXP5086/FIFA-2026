@@ -112,19 +112,18 @@ Deno.serve(async () => {
     match_id: string; status: string;
     home_score: number | null; away_score: number | null;
     live_minute: number | null; ending: string | null;
+    home_code: string | null; away_code: string | null;
   }> = [];
 
   for (const m of matches) {
-    const matchId = findMatchId(
-      m.homeTeam?.tla ?? '',
-      m.awayTeam?.tla ?? '',
-      m.utcDate ?? ''
-    );
+    const homeTla = m.homeTeam?.tla ?? '';
+    const awayTla = m.awayTeam?.tla ?? '';
+    const matchId = findMatchId(homeTla, awayTla, m.utcDate ?? '');
     if (!matchId) continue;
 
-    const status = mapStatus(m.status);
-    const score  = m.score ?? {};
-    const isLive = status === 'live';
+    const status  = mapStatus(m.status);
+    const score   = m.score ?? {};
+    const isLive  = status === 'live';
     const isFinal = status === 'final';
 
     let homeScore: number | null = null;
@@ -136,7 +135,6 @@ Deno.serve(async () => {
       ending = isFinal ? mapEnding(duration) : null;
 
       if (score.duration === 'PENALTY_SHOOTOUT' && isFinal) {
-        // Use penalty shootout score as the final score
         homeScore = score.penalties?.home ?? null;
         awayScore = score.penalties?.away ?? null;
       } else if ((score.duration === 'EXTRA_TIME' || score.duration === 'PENALTY_SHOOTOUT') && isFinal) {
@@ -148,6 +146,12 @@ Deno.serve(async () => {
       }
     }
 
+    // Store real team codes — critical for auto-populating the knockout bracket.
+    // For group matches these match data.js. For knockouts, the API fills them in
+    // once the bracket is set (after groups finish ~June 27).
+    const homeCode = homeTla ? normalise(homeTla) : null;
+    const awayCode = awayTla ? normalise(awayTla) : null;
+
     upserts.push({
       match_id: matchId,
       status,
@@ -155,6 +159,8 @@ Deno.serve(async () => {
       away_score: awayScore,
       live_minute: isLive ? (m.minute ?? null) : null,
       ending: isFinal ? ending : null,
+      home_code: homeCode,
+      away_code: awayCode,
     });
   }
 
