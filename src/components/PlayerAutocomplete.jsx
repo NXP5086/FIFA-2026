@@ -77,8 +77,10 @@ function PlayerAutocomplete({ value, onChange, disabled, placeholder, inputType 
   };
 
   const handleChange = (e) => {
-    setQuery(e.target.value);
-    onChange(e.target.value);
+    const v = e.target.value;
+    console.log('[AC] handleChange', { v, open, wrapRect: wrapRef.current?.getBoundingClientRect() });
+    setQuery(v);
+    onChange(v);
     setOpen(true);
     setActive(-1);
   };
@@ -101,6 +103,7 @@ function PlayerAutocomplete({ value, onChange, disabled, placeholder, inputType 
   }, [active]);
 
   const showDropdown = open && query.length >= 1;
+  console.log('[AC] render', { query, open, showDropdown, wrapRef: !!wrapRef.current });
 
   return (
     <div ref={wrapRef} style={{ position: 'relative', width: '100%' }}>
