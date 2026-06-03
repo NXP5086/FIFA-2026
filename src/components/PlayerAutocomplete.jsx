@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
-import { createPortal } from 'react-dom';
 import { PLAYERS, TEAM_NAMES } from '../lib/players.js';
 import { TEAMS } from '../lib/data.js';
 
@@ -42,7 +41,7 @@ function PlayerAutocomplete({ value, onChange, disabled, placeholder, inputType 
   const [query,  setQuery]  = useState(value ?? '');
   const [open,   setOpen]   = useState(false);
   const [active, setActive] = useState(-1);
-  const inputRef = useRef(null);
+  const wrapRef  = useRef(null);
   const listRef  = useRef(null);
   const noPlayers = PLAYERS.length === 0;
 
@@ -51,7 +50,6 @@ function PlayerAutocomplete({ value, onChange, disabled, placeholder, inputType 
   const results = useMemo(() => {
     const q = normalise(query);
     if (!q) return [];
-
     if (inputType === 'team') {
       return TEAM_NAMES
         .filter(t => normalise(t.name).includes(q) || normalise(t.shortName ?? '').includes(q))
@@ -79,9 +77,8 @@ function PlayerAutocomplete({ value, onChange, disabled, placeholder, inputType 
   };
 
   const handleChange = (e) => {
-    const v = e.target.value;
-    setQuery(v);
-    onChange(v);
+    setQuery(e.target.value);
+    onChange(e.target.value);
     setOpen(true);
     setActive(-1);
   };
@@ -89,8 +86,7 @@ function PlayerAutocomplete({ value, onChange, disabled, placeholder, inputType 
   // Close on outside click
   useEffect(() => {
     const handler = (e) => {
-      if (inputRef.current && !inputRef.current.contains(e.target) &&
-          listRef.current && !listRef.current.contains(e.target)) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) {
         setOpen(false);
       }
     };
@@ -106,51 +102,12 @@ function PlayerAutocomplete({ value, onChange, disabled, placeholder, inputType 
 
   const showDropdown = open && query.length >= 1;
 
-  // Calculate position from input element directly during render (position: fixed = viewport coords)
-  const rect = showDropdown ? inputRef.current?.getBoundingClientRect() : null;
-  const dropStyle = rect
-    ? { position: 'fixed', top: rect.bottom + 4, left: rect.left, width: rect.width, zIndex: 9999 }
-    : { position: 'fixed', top: -9999, left: 0, width: 0 };
-
-  const dropdown = showDropdown ? createPortal(
-    <ul
-      ref={listRef}
-      className="ac-dropdown"
-      role="listbox"
-      style={dropStyle}
-    >
-      {results.length === 0 ? (
-        <li className="ac-empty">
-          {noPlayers && inputType === 'player'
-            ? 'Run node scripts/fetch-squads.mjs to load players'
-            : `No results for "${query}"`}
-        </li>
-      ) : results.map((item, i) => (
-        <li
-          key={item.name + (item.teamCode ?? item.code ?? '')}
-          className={`ac-item ${i === active ? 'active' : ''}`}
-          role="option"
-          aria-selected={i === active}
-          onMouseDown={(e) => { e.preventDefault(); select(item.name); }}
-          onMouseEnter={() => setActive(i)}
-        >
-          <MiniFlag code={item.teamCode ?? item.code} />
-          <span className="ac-item-name">
-            <Highlight text={item.name} query={query} />
-          </span>
-          <span className="ac-item-team">{item.teamCode ?? item.code}</span>
-        </li>
-      ))}
-    </ul>,
-    document.body
-  ) : null;
-
   return (
-    <div className="ac-wrap">
+    <div ref={wrapRef} style={{ position: 'relative', width: '100%' }}>
       <input
-        ref={inputRef}
         type="text"
         className="award-input"
+        style={{ width: '100%' }}
         value={query}
         placeholder={placeholder ?? ''}
         disabled={disabled}
@@ -159,7 +116,42 @@ function PlayerAutocomplete({ value, onChange, disabled, placeholder, inputType 
         onKeyDown={handleKey}
         autoComplete="off"
       />
-      {dropdown}
+      {showDropdown && (
+        <ul
+          ref={listRef}
+          className="ac-dropdown"
+          style={{
+            position: 'fixed',
+            zIndex: 99999,
+            left: wrapRef.current ? wrapRef.current.getBoundingClientRect().left : 0,
+            top:  wrapRef.current ? wrapRef.current.getBoundingClientRect().bottom + 4 : 0,
+            width: wrapRef.current ? wrapRef.current.getBoundingClientRect().width : 300,
+          }}
+          role="listbox"
+        >
+          {results.length === 0 ? (
+            <li className="ac-empty">
+              {noPlayers && inputType === 'player'
+                ? 'Run node scripts/fetch-squads.mjs to enable player search'
+                : `No results for "${query}"`}
+            </li>
+          ) : results.map((item, i) => (
+            <li
+              key={item.name + (item.teamCode ?? item.code ?? '')}
+              className={`ac-item ${i === active ? 'active' : ''}`}
+              role="option"
+              onMouseDown={(e) => { e.preventDefault(); select(item.name); }}
+              onMouseEnter={() => setActive(i)}
+            >
+              <MiniFlag code={item.teamCode ?? item.code} />
+              <span className="ac-item-name">
+                <Highlight text={item.name} query={query} />
+              </span>
+              <span className="ac-item-team">{item.teamCode ?? item.code}</span>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
