@@ -56,7 +56,7 @@ function LeaderboardPage({ activeUserId, predictions, awardPredictions, matches:
         delta: ({ u1: 1, u2: -2, u3: 0, u4: 3, u5: -1, u6: 0, u7: 2, u8: -1, u9: 4 })[u.id] || 0
       };
     }).sort((a, b) => b.pts - a.pts || b.exact - a.exact || b.outcome - a.outcome);
-  }, [predictions]);
+  }, [predictions, awardPredictions, MATCHES]);
 
   const finalsCount = MATCHES.filter(m => m.result).length;
   const totalMatches = MATCHES.length;
@@ -82,7 +82,7 @@ function LeaderboardPage({ activeUserId, predictions, awardPredictions, matches:
       });
       return { user: u, best };
     }).sort((a, b) => b.best - a.best).slice(0, 3);
-  }, [predictions]);
+  }, [predictions, MATCHES]);
 
   // Biggest single-match haul
   const biggestHaul = useMemo(() => {
@@ -100,7 +100,7 @@ function LeaderboardPage({ activeUserId, predictions, awardPredictions, matches:
       });
     });
     return best;
-  }, [predictions]);
+  }, [predictions, MATCHES]);
 
   return (
     <>
