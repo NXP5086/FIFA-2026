@@ -4,7 +4,6 @@ import {
   TEAMS,
   MATCHES,
   AWARDS,
-  AWARD_RESULTS,
   isKnockout,
   STAGE_LABELS,
   LOCK_WINDOWS,
@@ -49,7 +48,7 @@ function fmtPick(pred, match) {
   return s;
 }
 
-function PickReveal({ predictions, awardPredictions, activeUserId, matches: MATCHES }) {
+function PickReveal({ predictions, awardPredictions, awardWinners = {}, activeUserId, matches: MATCHES }) {
   const [round, setRound] = useState("MD1");
   const [nowMs, setNowMs] = useState(Date.now());
 
@@ -132,7 +131,7 @@ function PickReveal({ predictions, awardPredictions, activeUserId, matches: MATC
           </div>
         </div>
       ) : active.kind === "awards" ? (
-        <AwardsReveal awardPreds={awardPredictions || {}} activeUserId={activeUserId} />
+        <AwardsReveal awardPreds={awardPredictions || {}} awardWinners={awardWinners} activeUserId={activeUserId} />
       ) : (
         <MatchesReveal matches={active.matches} predictions={predictions} activeUserId={activeUserId} />
       )}
@@ -268,12 +267,12 @@ function MatchesReveal({ matches, predictions, activeUserId }) {
 }
 
 // ---------- awards reveal ----------
-function AwardsReveal({ awardPreds, activeUserId }) {
+function AwardsReveal({ awardPreds, awardWinners = {}, activeUserId }) {
   return (
     <div className="reveal-awards">
       {AWARDS.map(a => {
-        const result = AWARD_RESULTS[a.id];
-        const settled = !!(result && result.winner);
+        const winner = awardWinners[a.id] ?? null;
+        const settled = !!winner;
         return (
           <div key={a.id} className="reveal-award">
             <div className="reveal-award-head">
@@ -281,7 +280,7 @@ function AwardsReveal({ awardPreds, activeUserId }) {
               {settled && (
                 <div className="reveal-award-winner">
                   <span className="reveal-award-winner-label">Winner</span>
-                  {result.winner}
+                  {winner}
                 </div>
               )}
             </div>
@@ -290,7 +289,7 @@ function AwardsReveal({ awardPreds, activeUserId }) {
                 const p = awardPreds[`${u.id}:${a.id}`];
                 const has = p && p.submitted;
                 const correct = has && settled
-                  && scoreAwardPrediction(p.pick, result.winner) > 0;
+                  && scoreAwardPrediction(p.pick, winner) > 0;
                 return (
                   <div
                     key={u.id}

@@ -64,6 +64,7 @@ function AppShell() {
   const [predictions, setPredictions]           = useState({});
   const [awardPredictions, setAwardPredictions] = useState({});
   const [matchResults, setMatchResults]         = useState({});
+  const [awardWinners, setAwardWinners]         = useState({});
   const [lastSync, setLastSync]                 = useState(null);
   const [loading, setLoading]                   = useState(true);
   const [toast, setToast]                       = useState(null);
@@ -86,8 +87,9 @@ function AppShell() {
       loadAllPredictionsFromDB(supabase),
       loadAllAwardPredictionsFromDB(supabase),
       supabase.from('match_results').select('*'),
+      supabase.from('award_winners').select('*'),
     ])
-      .then(([preds, awardPreds, { data: results }]) => {
+      .then(([preds, awardPreds, { data: results }, { data: winners }]) => {
         setPredictions(preds);
         setAwardPredictions(awardPreds);
         if (results) {
@@ -96,22 +98,37 @@ function AppShell() {
           setMatchResults(map);
           setLastSync(new Date());
         }
+        if (winners) {
+          const map = {};
+          winners.forEach(w => { if (w.winner) map[w.award_id] = w.winner; });
+          setAwardWinners(map);
+        }
       })
       .catch(() => showToast('Could not load data. Please refresh.'))
       .finally(() => setLoading(false));
   }, [profile]);
 
-  // Realtime subscription: match_results updates push to all clients instantly
+  // Realtime: match results + award winners push to all clients instantly
   useEffect(() => {
     if (!profile) return;
     const channel = supabase
-      .channel('match_results_live')
-      .on(
-        'postgres_changes',
+      .channel('live_updates')
+      .on('postgres_changes',
         { event: '*', schema: 'public', table: 'match_results' },
         (payload) => {
           setMatchResults(prev => ({ ...prev, [payload.new.match_id]: payload.new }));
           setLastSync(new Date());
+        }
+      )
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'award_winners' },
+        (payload) => {
+          setAwardWinners(prev => {
+            const next = { ...prev };
+            if (payload.new.winner) next[payload.new.award_id] = payload.new.winner;
+            else delete next[payload.new.award_id];
+            return next;
+          });
         }
       )
       .subscribe();
@@ -220,6 +237,7 @@ function AppShell() {
               <AwardsPage
                 activeUserId={activeUserId}
                 awardPredictions={awardPredictions}
+                awardWinners={awardWinners}
                 onAwardPredict={handleAwardPredict}
               />
             )}
@@ -228,13 +246,14 @@ function AppShell() {
                 activeUserId={activeUserId}
                 predictions={predictions}
                 awardPredictions={awardPredictions}
+                awardWinners={awardWinners}
                 matches={enrichedMatches}
                 setView={setView}
               />
             )}
             {view === 'rules' && <RulesPage />}
             {view === 'admin' && isAdmin && (
-              <AdminPage matchResults={matchResults} />
+              <AdminPage matchResults={matchResults} awardWinners={awardWinners} />
             )}
           </>
         )}

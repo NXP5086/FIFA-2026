@@ -132,17 +132,85 @@ ALTER TABLE public.match_results ADD COLUMN IF NOT EXISTS home_code TEXT;
 ALTER TABLE public.match_results ADD COLUMN IF NOT EXISTS away_code TEXT;
 
 ALTER TABLE public.match_results ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "match_results_select" ON public.match_results;
-DROP POLICY IF EXISTS "match_results_admin"  ON public.match_results;
+DROP POLICY IF EXISTS "match_results_select"      ON public.match_results;
+DROP POLICY IF EXISTS "match_results_admin"       ON public.match_results;
+DROP POLICY IF EXISTS "match_results_admin_write" ON public.match_results;
 -- All authenticated users can read results
 CREATE POLICY "match_results_select" ON public.match_results
   FOR SELECT TO authenticated USING (TRUE);
--- Only service role (Edge Function / admin script) can write
--- No authenticated INSERT/UPDATE policy — writes go via service role only
+-- Admin users (u27 = Nathan, u20 = Kimzo) can write results via the Admin panel
+CREATE POLICY "match_results_admin_write" ON public.match_results
+  FOR ALL TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.profiles
+      WHERE id = auth.uid() AND internal_id IN ('u27', 'u20')
+    )
+  )
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM public.profiles
+      WHERE id = auth.uid() AND internal_id IN ('u27', 'u20')
+    )
+  );
 
 CREATE OR REPLACE TRIGGER match_results_updated_at
   BEFORE UPDATE ON public.match_results
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
+-- -------------------------------------------------------
+-- 6. AWARD WINNERS
+-- Set by admin after each award is announced.
+-- Replaces the hardcoded AWARD_RESULTS in data.js.
+-- -------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.award_winners (
+  award_id    TEXT PRIMARY KEY,   -- 'golden_ball' | 'golden_boot' | etc.
+  winner      TEXT,               -- null until announced
+  updated_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE public.award_winners ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "award_winners_select"      ON public.award_winners;
+DROP POLICY IF EXISTS "award_winners_admin_write" ON public.award_winners;
+CREATE POLICY "award_winners_select" ON public.award_winners
+  FOR SELECT TO authenticated USING (TRUE);
+CREATE POLICY "award_winners_admin_write" ON public.award_winners
+  FOR ALL TO authenticated
+  USING (
+    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND internal_id IN ('u27', 'u20'))
+  )
+  WITH CHECK (
+    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND internal_id IN ('u27', 'u20'))
+  );
+
+CREATE OR REPLACE TRIGGER award_winners_updated_at
+  BEFORE UPDATE ON public.award_winners
+  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+-- Seed with null winners so rows exist from the start
+INSERT INTO public.award_winners (award_id, winner) VALUES
+  ('golden_ball',  null),
+  ('golden_boot',  null),
+  ('golden_glove', null),
+  ('young_player', null),
+  ('fair_play',    null)
+ON CONFLICT (award_id) DO NOTHING;
+
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime' AND tablename = 'award_winners'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.award_winners;
+  END IF;
+END $$;
+
 -- Enable Realtime on match_results so clients get instant pushes
-ALTER PUBLICATION supabase_realtime ADD TABLE public.match_results;
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime' AND tablename = 'match_results'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.match_results;
+  END IF;
+END $$;

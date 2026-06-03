@@ -1,14 +1,15 @@
 import { useState, useMemo } from 'react';
 import { supabase } from '../lib/supabase.js';
-import { MATCHES, TEAMS, isKnockout, STAGE_LABELS } from '../lib/data.js';
+import { MATCHES, TEAMS, AWARDS, isKnockout, STAGE_LABELS } from '../lib/data.js';
 import { fmtDateShort } from '../lib/format.js';
+import PlayerAutocomplete from '../components/PlayerAutocomplete.jsx';
 
 // Simple admin panel for manually updating match results.
 // Only visible to the admin user (internal_id === 'u27').
 // Results written here go straight to Supabase and are instantly
 // visible to all 27 participants via Realtime.
 
-function AdminPage({ matchResults }) {
+function AdminPage({ matchResults, awardWinners = {} }) {
   const [filter, setFilter] = useState('live-upcoming');
   const [saving, setSaving] = useState(null);
   const [saved, setSaved]   = useState(null);
@@ -65,6 +66,9 @@ function AdminPage({ matchResults }) {
           </button>
         ))}
       </div>
+
+      {/* Award Winners Section */}
+      <AwardWinnersPanel awardWinners={awardWinners} />
 
       <div className="admin-grid">
         {matches.map(m => (
@@ -194,6 +198,77 @@ function AdminMatchCard({ match, result, onSave, saving, saved }) {
         </button>
       </div>
     </form>
+  );
+}
+
+function AwardWinnersPanel({ awardWinners }) {
+  const [drafts,  setDrafts]  = useState({});
+  const [saving,  setSaving]  = useState(null);
+  const [saved,   setSaved]   = useState(null);
+
+  const handleSave = async (awardId, value) => {
+    setSaving(awardId);
+    const { error } = await supabase
+      .from('award_winners')
+      .upsert({ award_id: awardId, winner: value || null }, { onConflict: 'award_id' });
+    setSaving(null);
+    if (!error) {
+      setSaved(awardId);
+      setTimeout(() => setSaved(null), 2000);
+      setDrafts(d => { const c = { ...d }; delete c[awardId]; return c; });
+    } else {
+      alert(`Save failed: ${error.message}`);
+    }
+  };
+
+  return (
+    <div className="admin-winners-panel">
+      <div className="admin-winners-head">
+        <span className="admin-winners-title">Official Award Winners</span>
+        <span className="admin-winners-sub">Set after FIFA announces each winner — updates all participants instantly</span>
+      </div>
+      <div className="admin-winners-grid">
+        {AWARDS.map(a => {
+          const current = awardWinners[a.id] ?? '';
+          const draft = drafts[a.id] ?? current;
+          return (
+            <div key={a.id} className="admin-winner-card">
+              <div className="admin-winner-label">{a.name}</div>
+              <div className="admin-winner-sub">{a.subtitle}</div>
+              <div className="admin-winner-row">
+                <PlayerAutocomplete
+                  inputType={a.inputType === 'team' ? 'team' : 'player'}
+                  value={draft}
+                  onChange={(v) => setDrafts(d => ({ ...d, [a.id]: v }))}
+                  placeholder={`Enter ${a.inputType === 'team' ? 'team' : 'player'} name…`}
+                />
+                <button
+                  type="button"
+                  className="submit-btn"
+                  disabled={saving === a.id || draft === current}
+                  onClick={() => handleSave(a.id, draft)}
+                  style={{ whiteSpace: 'nowrap' }}
+                >
+                  {saving === a.id ? 'Saving…' : saved === a.id ? '✓ Saved' : 'Set Winner →'}
+                </button>
+              </div>
+              {current && (
+                <div className="admin-winner-current">
+                  Current: <strong>{current}</strong>
+                  <button
+                    type="button"
+                    className="admin-winner-clear"
+                    onClick={() => { setDrafts(d => ({ ...d, [a.id]: '' })); handleSave(a.id, ''); }}
+                  >
+                    Clear
+                  </button>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 

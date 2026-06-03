@@ -4,7 +4,6 @@ import {
   TEAMS,
   MATCHES,
   AWARDS,
-  AWARD_RESULTS,
   scorePrediction,
   scoreKnockoutPrediction,
   isKnockout,
@@ -14,7 +13,7 @@ import { Avatar } from '../components/index.jsx';
 import PickReveal from './PickReveal.jsx';
 
 
-function LeaderboardPage({ activeUserId, predictions, awardPredictions, matches: MATCHES, setView }) {
+function LeaderboardPage({ activeUserId, predictions, awardPredictions, awardWinners = {}, matches: MATCHES, setView }) {
   // Compute stats per user
   const rankings = useMemo(() => {
     const finals = MATCHES.filter(m => m.result);
@@ -36,11 +35,11 @@ function LeaderboardPage({ activeUserId, predictions, awardPredictions, matches:
       // Awards: +5 each for correct settled awards
       let awardsHit = 0, awardsPts = 0;
       (AWARDS || []).forEach(a => {
-        const result = AWARD_RESULTS && AWARD_RESULTS[a.id];
-        if (!result || !result.winner) return;
+        const winner = awardWinners[a.id];
+        if (!winner) return;
         const pick = awardPreds[`${u.id}:${a.id}`];
         if (!pick || !pick.submitted) return;
-        const earned = scoreAwardPrediction(pick.pick, result.winner);
+        const earned = scoreAwardPrediction(pick.pick, winner);
         if (earned > 0) { awardsHit++; awardsPts += earned; }
       });
       pts += awardsPts;
@@ -55,7 +54,7 @@ function LeaderboardPage({ activeUserId, predictions, awardPredictions, matches:
         acc: picks > 0 ? Math.round(((exact + outcome) / picks) * 100) : 0
       };
     }).sort((a, b) => b.pts - a.pts || b.exact - a.exact || b.outcome - a.outcome);
-  }, [predictions, awardPredictions, MATCHES]);
+  }, [predictions, awardPredictions, awardWinners, MATCHES]);
 
   const finalsCount = MATCHES.filter(m => m.result).length;
   const totalMatches = MATCHES.length;
@@ -285,7 +284,7 @@ function LeaderboardPage({ activeUserId, predictions, awardPredictions, matches:
         </aside>
       </div>
 
-      <PickReveal predictions={predictions} awardPredictions={awardPredictions} activeUserId={activeUserId} matches={MATCHES} />
+      <PickReveal predictions={predictions} awardPredictions={awardPredictions} awardWinners={awardWinners} activeUserId={activeUserId} matches={MATCHES} />
     </>
   );
 }

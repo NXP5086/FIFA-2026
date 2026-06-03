@@ -1,14 +1,14 @@
 import { useState, useEffect, useMemo } from 'react';
 import {
   AWARDS,
-  AWARD_RESULTS,
   LOCK_WINDOWS,
   scoreAwardPrediction,
   isAwardsLocked,
 } from '../lib/data.js';
 import { fmtLock } from '../lib/format.js';
+import PlayerAutocomplete from '../components/PlayerAutocomplete.jsx';
 
-function AwardsPage({ activeUserId, awardPredictions, onAwardPredict }) {
+function AwardsPage({ activeUserId, awardPredictions, awardWinners = {}, onAwardPredict }) {
   const [drafts, setDrafts] = useState({});
   const [nowMs, setNowMs] = useState(Date.now());
 
@@ -33,19 +33,19 @@ function AwardsPage({ activeUserId, awardPredictions, onAwardPredict }) {
   const stats = useMemo(() => {
     let submitted = 0, scored = 0, points = 0, settled = 0;
     AWARDS.forEach(a => {
-      const result = AWARD_RESULTS[a.id];
-      if (result && result.winner) settled++;
+      const winner = awardWinners[a.id];
+      if (winner) settled++;
       const pick = myPicks[a.id];
       if (pick && pick.submitted) {
         submitted++;
-        if (result && result.winner) {
-          const pts = scoreAwardPrediction(pick.pick, result.winner);
+        if (winner) {
+          const pts = scoreAwardPrediction(pick.pick, winner);
           if (pts > 0) { scored++; points += pts; }
         }
       }
     });
     return { submitted, scored, points, settled };
-  }, [myPicks]);
+  }, [myPicks, awardWinners]);
 
   const handleDraftChange = (awardId, value) => {
     setDrafts(d => ({ ...d, [awardId]: value }));
@@ -100,12 +100,12 @@ function AwardsPage({ activeUserId, awardPredictions, onAwardPredict }) {
       <div className="awards-grid">
         {AWARDS.map((award, idx) => {
           const pick = myPicks[award.id];
-          const result = AWARD_RESULTS[award.id];
-          const settled = !!(result && result.winner);
+          const winner = awardWinners[award.id] ?? null;
+          const settled = !!winner;
           const draft = drafts[award.id];
           const isEditing = draft !== undefined || !pick;
           const correct = pick && settled && pick.submitted
-            && scoreAwardPrediction(pick.pick, result.winner) > 0;
+            && scoreAwardPrediction(pick.pick, winner) > 0;
           const wrong = pick && settled && pick.submitted && !correct;
 
           return (
@@ -132,7 +132,7 @@ function AwardsPage({ activeUserId, awardPredictions, onAwardPredict }) {
                 {settled && (
                   <div className="award-official">
                     <div className="award-official-label">Official Winner</div>
-                    <div className="award-official-name">{result.winner}</div>
+                    <div className="award-official-name">{winner}</div>
                   </div>
                 )}
 
@@ -163,13 +163,12 @@ function AwardsPage({ activeUserId, awardPredictions, onAwardPredict }) {
                   <div className="award-input-row">
                     <div className="award-input-wrap">
                       <label className="award-input-label">Your Pick</label>
-                      <input
-                        type="text"
-                        className="award-input"
-                        placeholder={award.hint}
+                      <PlayerAutocomplete
+                        inputType={award.inputType === 'team' ? 'team' : 'player'}
                         value={draft ?? pick?.pick ?? ""}
-                        onChange={(e) => handleDraftChange(award.id, e.target.value)}
+                        onChange={(v) => handleDraftChange(award.id, v)}
                         disabled={settled || awardsLocked}
+                        placeholder={award.hint}
                       />
                     </div>
                     <button
