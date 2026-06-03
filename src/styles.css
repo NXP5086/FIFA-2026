@@ -2598,10 +2598,6 @@ tr.me .rg-cell { background: rgba(116, 188, 137, 0.06); }
   width: 100%;
 }
 .ac-dropdown {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  right: 0;
   background: var(--card);
   border: 2px solid var(--grass);
   border-radius: 2px;
