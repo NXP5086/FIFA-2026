@@ -54,7 +54,7 @@ function PlayerAutocomplete({ value, onChange, disabled, placeholder, inputType 
 
   const results = useMemo(() => {
     const q = normalise(query);
-    if (!q || q.length < 2) return [];
+    if (!q || q.length < 1) return [];
 
     if (inputType === 'team') {
       return TEAM_NAMES
@@ -113,7 +113,7 @@ function PlayerAutocomplete({ value, onChange, disabled, placeholder, inputType 
     }
   }, [active]);
 
-  const showDropdown = open && query.length >= 2;
+  const showDropdown = open && query.length >= 1;
 
   return (
     <div className="ac-wrap">
@@ -125,7 +125,7 @@ function PlayerAutocomplete({ value, onChange, disabled, placeholder, inputType 
         placeholder={noPlayers && inputType === 'player' ? 'Run fetch-squads script to enable autocomplete' : (placeholder ?? '')}
         disabled={disabled}
         onChange={handleChange}
-        onFocus={() => query.length >= 2 && setOpen(true)}
+        onFocus={() => query.length >= 1 && setOpen(true)}
         onKeyDown={handleKey}
         autoComplete="off"
       />
