@@ -14,7 +14,7 @@ function LoginPage({ authError }) {
     setError('');
     const { error } = await supabase.auth.signInWithOtp({
       email: email.trim(),
-      options: { shouldCreateUser: false },
+      options: { shouldCreateUser: false, redirectTo: window.location.origin },
     });
     setSending(false);
     if (error) {
