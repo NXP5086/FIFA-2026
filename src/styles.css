@@ -2476,6 +2476,19 @@ tr.me .rg-cell { background: rgba(116, 188, 137, 0.06); }
   padding: 4px 10px 4px 6px;
   min-width: 120px;
 }
+.user-identity .avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  color: #F5F3EE;
+  flex-shrink: 0;
+}
 .user-identity-name {
   font-family: var(--font-display);
   font-size: 13px;
@@ -2732,4 +2745,146 @@ tr.me .rg-cell { background: rgba(116, 188, 137, 0.06); }
   cursor: pointer;
   padding: 0;
   text-decoration: underline;
+}
+
+/* ============ MOBILE RESPONSIVE ============ */
+
+@media (max-width: 768px) {
+  /* --- TopBar: 2-row layout (wordmark+user on top, nav below) --- */
+  .topbar-inner {
+    grid-template-columns: 1fr auto;
+    grid-template-rows: auto auto;
+    height: auto;
+    padding: 10px 16px 0;
+    gap: 6px 12px;
+  }
+  .wordmark {
+    grid-column: 1;
+    grid-row: 1;
+    align-self: center;
+  }
+  .user-pick {
+    grid-column: 2;
+    grid-row: 1;
+    align-self: center;
+  }
+  .nav {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    margin: 6px -16px 0;
+    border-top: 1px solid rgba(245, 243, 238, 0.1);
+    padding: 2px 6px;
+    gap: 2px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    justify-content: stretch;
+  }
+  .nav::-webkit-scrollbar { display: none; }
+  .nav button {
+    flex: 1;
+    text-align: center;
+    font-size: 11px;
+    padding: 9px 8px;
+    min-width: 0;
+    white-space: nowrap;
+  }
+  .wordmark .mark-sub { display: none; }
+  .user-pick-label { display: none; }
+
+  /* --- Syncstrip: not sticky on mobile (topbar height varies) --- */
+  .syncstrip {
+    position: static;
+  }
+  .syncstrip-right { display: none; }
+  .syncstrip-inner { padding: 0 16px; }
+  .syncstrip-divider { display: none; }
+
+  /* --- Main content padding --- */
+  main {
+    padding: 20px 14px 80px;
+  }
+
+  /* --- Page header --- */
+  .page-head {
+    grid-template-columns: 1fr;
+    gap: 10px;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+  }
+  .page-title { font-size: 40px; }
+  .page-meta { text-align: left; }
+
+  /* --- Matchday block header --- */
+  .md-block-num { font-size: 56px; }
+  .md-block-header { gap: 12px; }
+  .md-block-meta {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+    padding-bottom: 4px;
+  }
+
+  /* --- Filters: horizontal scrolling groups + stacked rows --- */
+  .filters {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+  }
+  .filter-group {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    width: 100%;
+    min-width: 0;
+  }
+  .filter-group::-webkit-scrollbar { display: none; }
+  .search { min-width: 0; }
+
+  /* --- Rank table: hide the 4 stat columns, show rank + player + pts --- */
+  .rank-row {
+    grid-template-columns: 40px 1fr 80px;
+  }
+  .rank-row .rank-stat { display: none; }
+  .rank-row.head > div:nth-child(3),
+  .rank-row.head > div:nth-child(4),
+  .rank-row.head > div:nth-child(5),
+  .rank-row.head > div:nth-child(6) { display: none; }
+
+  /* --- Awards intro: stack vertically --- */
+  .awards-intro {
+    grid-template-columns: 1fr;
+    gap: 10px;
+    padding: 18px 20px;
+  }
+  .awards-intro-num { font-size: 48px; }
+
+  /* --- KO extras: shrink label min-width --- */
+  .ko-label { min-width: 80px; }
+
+  /* --- Pick reveal --- */
+  .reveal-head { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .reveal-note { display: none; }
+  .reveal-title { font-size: 28px; }
+
+  /* --- Login page --- */
+  .login-card { padding: 36px 24px; }
+}
+
+@media (max-width: 480px) {
+  main { padding: 16px 12px 80px; }
+
+  .page-title { font-size: 32px; }
+  .md-block-num { font-size: 44px; }
+  .matchday-date { font-size: 18px; }
+
+  /* Compact match cards */
+  .match { padding: 12px 14px; }
+  .team-code { font-size: 17px; }
+  .rank-pts { font-size: 24px; }
+
+  /* User identity: hide name, show just avatar + logout */
+  .user-identity-name { display: none; }
+  .user-identity { min-width: 0; gap: 4px; }
 }
