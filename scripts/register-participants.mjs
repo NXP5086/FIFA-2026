@@ -1,15 +1,17 @@
-// One-time script to pre-register all participants in Supabase auth.
-// Run once: node scripts/register-participants.mjs
+// One-time script to pre-register all participants in Supabase auth
+// and pre-populate their profile rows.
 //
-// Requires SUPABASE_SERVICE_ROLE_KEY in your .env
-// Get it from: Supabase → Settings → API → service_role key
+// Run: node scripts/register-participants.mjs
+//
+// Requires VITE_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in .env
+// Get service role key: Supabase → Settings → API → service_role key
 
 import { createClient } from '@supabase/supabase-js';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { PARTICIPANT_CONFIG } from '../src/lib/participants.js';
 
-// Read .env manually (no dotenv needed)
 const envPath = join(dirname(fileURLToPath(import.meta.url)), '../.env');
 const env = Object.fromEntries(
   readFileSync(envPath, 'utf8')
@@ -18,8 +20,8 @@ const env = Object.fromEntries(
     .map(l => l.split('=').map(s => s.trim()))
 );
 
-const supabaseUrl     = env.VITE_SUPABASE_URL;
-const serviceRoleKey  = env.SUPABASE_SERVICE_ROLE_KEY;
+const supabaseUrl    = env.VITE_SUPABASE_URL;
+const serviceRoleKey = env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!supabaseUrl || !serviceRoleKey) {
   console.error('Missing VITE_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in .env');
@@ -30,56 +32,50 @@ const supabase = createClient(supabaseUrl, serviceRoleKey, {
   auth: { autoRefreshToken: false, persistSession: false }
 });
 
-const participants = [
-  { email: "mriganksanghvi@gmail.com"      },
-  { email: "pooja.jose94@gmail.com"        },
-  { email: "herilshah419@gmail.com"        },
-  { email: "shefali.gaglani05@gmail.com"   },
-  { email: "imtinokpongener@gmail.com"     },
-  { email: "taliimchen72@gmail.com"        },
-  { email: "puraka10@gmail.com"            },
-  { email: "bivinq@gmail.com"              },
-  { email: "aosen.xeno@gmail.com"          },
-  { email: "jamir.arenanung@gmail.com"     },
-  { email: "hussainsm89@gmail.com"         },
-  { email: "moatenzuklongkumer@gmail.com"  },
-  { email: "richardkath2@gmail.com"        },
-  { email: "meyipokao@gmail.com"           },
-  { email: "emmanuelamrittopno@gmail.com"  },
-  { email: "onen4032@gmail.com"            },
-  { email: "harshini226@gmail.com"         },
-  { email: "prakulkr.07@gmail.com"         },
-  { email: "vijitkumar30@gmail.com"        },
-  { email: "kimalongz079@gmail.com"        },
-  { email: "mxd.216@gmail.com"             },
-  { email: "nehavs24@gmail.com"            },
-  { email: "longkumer.longtilong@gmail.com"},
-  { email: "sungtirongimchen@gmail.com"    },
-  { email: "panyukuru@gmail.com"           },
-  { email: "esthernbm@gmail.com"           },
-  { email: "nathanxpaul@hotmail.com"       },
-];
+// Fetch all existing auth users so we can skip creates and resolve UUIDs
+const { data: { users: existingUsers }, error: listErr } = await supabase.auth.admin.listUsers({ perPage: 1000 });
+if (listErr) { console.error('Failed to list users:', listErr.message); process.exit(1); }
 
-console.log(`Registering ${participants.length} participants…\n`);
+const emailToUid = new Map(existingUsers.map(u => [u.email.toLowerCase(), u.id]));
 
-let ok = 0, skipped = 0, failed = 0;
+console.log(`Found ${existingUsers.length} existing auth users.`);
+console.log(`Seeding ${PARTICIPANT_CONFIG.length} participants…\n`);
 
-for (const { email } of participants) {
-  const { error } = await supabase.auth.admin.createUser({
-    email,
-    email_confirm: true,   // marks email as verified — no confirmation email sent
-  });
+let created = 0, skipped = 0, failed = 0;
 
-  if (!error) {
-    console.log(`  ✓  ${email}`);
-    ok++;
-  } else if (error.message?.toLowerCase().includes('already registered')) {
-    console.log(`  –  ${email}  (already exists)`);
-    skipped++;
+for (const { email, internal_id, name, initials, color } of PARTICIPANT_CONFIG) {
+  const key = email.toLowerCase();
+  let uid = emailToUid.get(key);
+
+  if (!uid) {
+    const { data, error } = await supabase.auth.admin.createUser({
+      email,
+      email_confirm: true,
+    });
+    if (error) {
+      console.error(`  ✗  ${email}  →  ${error.message}`);
+      failed++;
+      continue;
+    }
+    uid = data.user.id;
+    created++;
   } else {
-    console.error(`  ✗  ${email}  →  ${error.message}`);
+    skipped++;
+  }
+
+  // Upsert profile row (safe to run again — won't overwrite existing data)
+  const { error: upsertErr } = await supabase
+    .from('profiles')
+    .upsert({ id: uid, internal_id, name, initials, color }, { onConflict: 'id' });
+
+  if (upsertErr) {
+    console.error(`  ✗  profile for ${email}  →  ${upsertErr.message}`);
     failed++;
+  } else {
+    const tag = uid === emailToUid.get(key) ? '–' : '✓';
+    console.log(`  ${tag}  ${name.padEnd(12)} ${email}`);
   }
 }
 
-console.log(`\nDone. ${ok} created · ${skipped} already existed · ${failed} failed`);
+console.log(`\nAuth users: ${created} created · ${skipped} already existed · ${failed} failed`);
+console.log('Profiles upserted for all successful users.');

@@ -54,6 +54,7 @@ export const USERS = [
   { id: "u51", name: "Rajat",      initials: "RT", color: "#78350F" },
   { id: "u52", name: "Rahul",      initials: "RS", color: "#374151" },
   { id: "u53", name: "Edi",        initials: "EI", color: "#713F12" },
+  { id: "u54", name: "Shreyas",   initials: "SY", color: "#F472B6" },
 ];
 
 const T = (code, name, c1, c2, c3) => ({ code, name, c1, c2, c3: c3 || c2 });
