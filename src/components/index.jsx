@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import {
   USERS,
   TEAMS,
-  TEAM_FLAGS,
+  TEAM_ISO2,
   VENUES,
   MATCHES,
   scorePrediction,
@@ -29,11 +29,15 @@ function LockStatus({ lockKey, nowMs }) {
 
 // ---------- atomic ----------
 function Flag({ team }) {
-  const emoji = TEAM_FLAGS[team.code];
+  const iso2 = TEAM_ISO2[team.code];
   return (
     <div className="flag" aria-label={team.name}>
-      {emoji
-        ? <span className="flag-emoji">{emoji}</span>
+      {iso2
+        ? <img
+            src={`https://flagcdn.com/w40/${iso2}.png`}
+            alt={team.name}
+            className="flag-img"
+          />
         : (
           <>
             <span style={{ background: team.c1 }} />

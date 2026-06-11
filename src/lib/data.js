@@ -107,17 +107,18 @@ export const TEAMS = {
   TBD: T("TBD", "To Be Determined", "#C8C2B5", "#E3DFD6", "#C8C2B5")
 };
 
-export const TEAM_FLAGS = {
-  MEX: "🇲🇽", CAN: "🇨🇦", USA: "🇺🇸", ARG: "🇦🇷", BRA: "🇧🇷",
-  FRA: "🇫🇷", ENG: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", ESP: "🇪🇸", GER: "🇩🇪", POR: "🇵🇹",
-  NED: "🇳🇱", BEL: "🇧🇪", CRO: "🇭🇷", URU: "🇺🇾", JPN: "🇯🇵",
-  KOR: "🇰🇷", AUS: "🇦🇺", MAR: "🇲🇦", SEN: "🇸🇳", EGY: "🇪🇬",
-  GHA: "🇬🇭", CIV: "🇨🇮", IRN: "🇮🇷", SAU: "🇸🇦", QAT: "🇶🇦",
-  SUI: "🇨🇭", ECU: "🇪🇨", COL: "🇨🇴", NZL: "🇳🇿", NOR: "🇳🇴",
-  TUN: "🇹🇳", RSA: "🇿🇦", CZE: "🇨🇿", BIH: "🇧🇦", SCO: "🏴󠁧󠁢󠁳󠁣󠁴󠁿",
-  HAI: "🇭🇹", PAR: "🇵🇾", TUR: "🇹🇷", CUW: "🇨🇼", SWE: "🇸🇪",
-  CPV: "🇨🇻", IRQ: "🇮🇶", AUT: "🇦🇹", ALG: "🇩🇿", JOR: "🇯🇴",
-  UZB: "🇺🇿", COD: "🇨🇩", PAN: "🇵🇦",
+// ISO 3166-1 alpha-2 codes (or subdivision codes) for flagcdn.com
+export const TEAM_ISO2 = {
+  MEX: "mx", CAN: "ca", USA: "us", ARG: "ar", BRA: "br",
+  FRA: "fr", ENG: "gb-eng", ESP: "es", GER: "de", POR: "pt",
+  NED: "nl", BEL: "be", CRO: "hr", URU: "uy", JPN: "jp",
+  KOR: "kr", AUS: "au", MAR: "ma", SEN: "sn", EGY: "eg",
+  GHA: "gh", CIV: "ci", IRN: "ir", SAU: "sa", QAT: "qa",
+  SUI: "ch", ECU: "ec", COL: "co", NZL: "nz", NOR: "no",
+  TUN: "tn", RSA: "za", CZE: "cz", BIH: "ba", SCO: "gb-sct",
+  HAI: "ht", PAR: "py", TUR: "tr", CUW: "cw", SWE: "se",
+  CPV: "cv", IRQ: "iq", AUT: "at", ALG: "dz", JOR: "jo",
+  UZB: "uz", COD: "cd", PAN: "pa",
 };
 
 // 2026 World Cup — official group draw (December 5, 2025, Kennedy Center)
