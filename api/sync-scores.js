@@ -1,64 +1,48 @@
 import { createClient } from '@supabase/supabase-js';
 
-// football-data.org TLA → our internal team code
-// Most match exactly; this covers known/possible divergences.
-const TLA_MAP = {
-  MEX: 'MEX', CAN: 'CAN', USA: 'USA', ARG: 'ARG', BRA: 'BRA',
-  FRA: 'FRA', ENG: 'ENG', ESP: 'ESP', GER: 'GER', POR: 'POR',
-  NED: 'NED', BEL: 'BEL', CRO: 'CRO', URU: 'URU', JPN: 'JPN',
-  KOR: 'KOR', AUS: 'AUS', MAR: 'MAR', SEN: 'SEN', EGY: 'EGY',
-  GHA: 'GHA', CIV: 'CIV', IRN: 'IRN', SAU: 'SAU', QAT: 'QAT',
-  SUI: 'SUI', ECU: 'ECU', COL: 'COL', NZL: 'NZL', NOR: 'NOR',
-  TUN: 'TUN', RSA: 'RSA', CZE: 'CZE', BIH: 'BIH', SCO: 'SCO',
-  HAI: 'HAI', PAR: 'PAR', TUR: 'TUR', CUW: 'CUW', SWE: 'SWE',
-  CPV: 'CPV', IRQ: 'IRQ', AUT: 'AUT', ALG: 'ALG', JOR: 'JOR',
-  UZB: 'UZB', COD: 'COD', PAN: 'PAN',
-  // Possible alternative TLAs football-data.org might use
-  IRI: 'IRN',  // Iran (Islamic Republic)
-  DRC: 'COD',  // DR Congo
-  HTI: 'HAI',  // Haiti
-  CUR: 'CUW',  // Curaçao
-  CDI: 'CIV',  // Côte d'Ivoire
-  BOH: 'BIH',  // Bosnia & Herzegovina
-  KVX: 'KOR',  // shouldn't appear but safety net
+// api-football.com team name → our internal team code
+// Using names because the API's team.code field is unreliable across seasons
+const NAME_MAP = {
+  'Mexico': 'MEX', 'Canada': 'CAN', 'United States': 'USA', 'Argentina': 'ARG',
+  'Brazil': 'BRA', 'France': 'FRA', 'England': 'ENG', 'Spain': 'ESP',
+  'Germany': 'GER', 'Portugal': 'POR', 'Netherlands': 'NED', 'Belgium': 'BEL',
+  'Croatia': 'CRO', 'Uruguay': 'URU', 'Japan': 'JPN', 'South Korea': 'KOR',
+  'Korea Republic': 'KOR', 'Republic of Korea': 'KOR', 'Australia': 'AUS',
+  'Morocco': 'MAR', 'Senegal': 'SEN', 'Egypt': 'EGY', 'Ghana': 'GHA',
+  "Ivory Coast": 'CIV', "Cote d'Ivoire": 'CIV', "Côte d'Ivoire": 'CIV',
+  'Iran': 'IRN', 'IR Iran': 'IRN', 'Saudi Arabia': 'SAU', 'Qatar': 'QAT',
+  'Switzerland': 'SUI', 'Ecuador': 'ECU', 'Colombia': 'COL', 'New Zealand': 'NZL',
+  'Norway': 'NOR', 'Tunisia': 'TUN', 'South Africa': 'RSA', 'Czechia': 'CZE',
+  'Czech Republic': 'CZE', 'Bosnia': 'BIH', 'Bosnia and Herzegovina': 'BIH',
+  'Bosnia & Herzegovina': 'BIH', 'Scotland': 'SCO', 'Haiti': 'HAI',
+  'Paraguay': 'PAR', 'Turkey': 'TUR', 'Turkiye': 'TUR', 'Türkiye': 'TUR',
+  'Curacao': 'CUW', 'Curaçao': 'CUW', 'Sweden': 'SWE', 'Cape Verde': 'CPV',
+  'Iraq': 'IRQ', 'Austria': 'AUT', 'Algeria': 'ALG', 'Jordan': 'JOR',
+  'Uzbekistan': 'UZB', 'DR Congo': 'COD', 'Congo DR': 'COD',
+  'Democratic Republic of Congo': 'COD', 'Panama': 'PAN',
 };
 
-// group-stage match index: "HOME-AWAY" → our internal match ID
-// Order matches genMatches() in data.js (GROUP_FIXTURES array index + 1)
+// Group-stage match index: "HOME-AWAY" → our internal match ID
 const GROUP_INDEX = {
-  // Group A
   'MEX-RSA': 'G01', 'KOR-CZE': 'G02', 'CZE-RSA': 'G03', 'MEX-KOR': 'G04', 'CZE-MEX': 'G05', 'RSA-KOR': 'G06',
-  // Group B
   'CAN-BIH': 'G07', 'QAT-SUI': 'G08', 'SUI-BIH': 'G09', 'CAN-QAT': 'G10', 'SUI-CAN': 'G11', 'BIH-QAT': 'G12',
-  // Group C
   'BRA-MAR': 'G13', 'HAI-SCO': 'G14', 'SCO-MAR': 'G15', 'BRA-HAI': 'G16', 'SCO-BRA': 'G17', 'MAR-HAI': 'G18',
-  // Group D
   'USA-PAR': 'G19', 'AUS-TUR': 'G20', 'USA-AUS': 'G21', 'TUR-PAR': 'G22', 'TUR-USA': 'G23', 'PAR-AUS': 'G24',
-  // Group E
   'GER-CUW': 'G25', 'CIV-ECU': 'G26', 'GER-CIV': 'G27', 'ECU-CUW': 'G28', 'ECU-GER': 'G29', 'CUW-CIV': 'G30',
-  // Group F
   'NED-JPN': 'G31', 'SWE-TUN': 'G32', 'NED-SWE': 'G33', 'TUN-JPN': 'G34', 'JPN-SWE': 'G35', 'TUN-NED': 'G36',
-  // Group G
   'BEL-EGY': 'G37', 'IRN-NZL': 'G38', 'BEL-IRN': 'G39', 'NZL-EGY': 'G40', 'EGY-IRN': 'G41', 'NZL-BEL': 'G42',
-  // Group H
   'ESP-CPV': 'G43', 'SAU-URU': 'G44', 'ESP-SAU': 'G45', 'URU-CPV': 'G46', 'CPV-SAU': 'G47', 'URU-ESP': 'G48',
-  // Group I
   'FRA-SEN': 'G49', 'IRQ-NOR': 'G50', 'FRA-IRQ': 'G51', 'NOR-SEN': 'G52', 'NOR-FRA': 'G53', 'SEN-IRQ': 'G54',
-  // Group J
   'ARG-ALG': 'G55', 'AUT-JOR': 'G56', 'ARG-AUT': 'G57', 'JOR-ALG': 'G58', 'ALG-AUT': 'G59', 'JOR-ARG': 'G60',
-  // Group K
   'POR-COD': 'G61', 'UZB-COL': 'G62', 'POR-UZB': 'G63', 'COL-COD': 'G64', 'COL-POR': 'G65', 'COD-UZB': 'G66',
-  // Group L
   'ENG-CRO': 'G67', 'GHA-PAN': 'G68', 'ENG-GHA': 'G69', 'PAN-CRO': 'G70', 'PAN-ENG': 'G71', 'CRO-GHA': 'G72',
 };
 
-// KO match index: kickoff UTC time (minutes-since-epoch) → match ID
-// Same et() formula as data.js: EDT (UTC-4) → UTC
+// KO match index: kickoff UTC ms → match ID (±5 min tolerance)
 function etMs(dateStr, hour, min, next) {
   const [y, m, d] = dateStr.split('-').map(Number);
   return Date.UTC(y, m - 1, d + (next ? 1 : 0), hour + 4, min || 0, 0);
 }
-
 const KO_BY_MIN = new Map([
   [etMs('2026-06-28', 15, 0), 'M73'],  [etMs('2026-06-29', 16, 30), 'M74'],
   [etMs('2026-06-29', 21, 0), 'M75'],  [etMs('2026-06-29', 13, 0), 'M76'],
@@ -78,16 +62,21 @@ const KO_BY_MIN = new Map([
   [etMs('2026-07-18', 15, 0), 'M103'], [etMs('2026-07-19', 15, 0), 'M104'],
 ]);
 
-function resolveMatchId(homeTla, awayTla, utcDate) {
-  const key = `${homeTla}-${awayTla}`;
+function resolveMatchId(homeCode, awayCode, kickoffDate) {
+  const key = `${homeCode}-${awayCode}`;
   if (GROUP_INDEX[key]) return GROUP_INDEX[key];
-  // KO: match by kickoff minute (±5 min tolerance for API rounding)
-  const kickoffMs = new Date(utcDate).getTime();
+  const kickoffMs = new Date(kickoffDate).getTime();
   for (const [ms, id] of KO_BY_MIN) {
     if (Math.abs(kickoffMs - ms) <= 5 * 60 * 1000) return id;
   }
   return null;
 }
+
+// api-football.com status short codes
+const LIVE_STATUS   = new Set(['1H', '2H', 'HT', 'ET', 'BT', 'P', 'INT', 'LIVE']);
+const FINISH_STATUS = new Set(['FT', 'AET', 'PEN']);
+// Map API finish status → our ending code
+const ENDING_MAP = { FT: 'NT', AET: 'ET', PEN: 'PENS' };
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -96,48 +85,54 @@ export default async function handler(req, res) {
 
   const debug = req.query?.debug === '1';
 
-  const apiKey          = process.env.FOOTBALL_DATA_API_KEY;
+  const apiKey          = process.env.API_FOOTBALL_KEY;
   const supabaseUrl     = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
   const supabaseService = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!apiKey || !supabaseUrl || !supabaseService) {
-    return res.status(500).json({ error: 'Missing env vars: FOOTBALL_DATA_API_KEY, SUPABASE_URL/VITE_SUPABASE_URL, SUPABASE_SERVICE_KEY/SUPABASE_SERVICE_ROLE_KEY' });
+    return res.status(500).json({ error: 'Missing env vars: API_FOOTBALL_KEY, SUPABASE_URL/VITE_SUPABASE_URL, SUPABASE_SERVICE_KEY/SUPABASE_SERVICE_ROLE_KEY' });
   }
 
   const supabase = createClient(supabaseUrl, supabaseService);
 
-  // Fetch yesterday → tomorrow to handle all timezones & late-night games
+  const RAPIDAPI_HOST = 'api-football-v1.p.rapidapi.com';
+  const headers = { 'X-RapidAPI-Key': apiKey, 'X-RapidAPI-Host': RAPIDAPI_HOST };
+
+  // Fetch yesterday + today to catch late-night matches in all timezones
   const now  = new Date();
-  const from = new Date(now); from.setDate(from.getDate() - 1);
-  const to   = new Date(now); to.setDate(to.getDate() + 1);
-  const fmt  = d => d.toISOString().split('T')[0];
+  const yesterday = new Date(now); yesterday.setDate(yesterday.getDate() - 1);
+  const fmt = d => d.toISOString().split('T')[0];
 
-  const url = `https://api.football-data.org/v4/competitions/WC/matches?dateFrom=${fmt(from)}&dateTo=${fmt(to)}`;
+  // Fetch today's WC matches (league 1 = FIFA World Cup, season 2026)
+  // and yesterday's in case of overnight games still in progress
+  const urls = [
+    `https://${RAPIDAPI_HOST}/v3/fixtures?league=1&season=2026&date=${fmt(now)}`,
+    `https://${RAPIDAPI_HOST}/v3/fixtures?league=1&season=2026&date=${fmt(yesterday)}`,
+  ];
 
-  let fdData;
-  try {
-    const fdRes = await fetch(url, { headers: { 'X-Auth-Token': apiKey } });
-    if (!fdRes.ok) {
-      const text = await fdRes.text();
-      return res.status(502).json({ error: `football-data.org ${fdRes.status}`, detail: text, url });
-    }
-    fdData = await fdRes.json();
-  } catch (err) {
-    return res.status(502).json({ error: 'Failed to reach football-data.org', detail: err.message });
+  let allFixtures = [];
+  for (const url of urls) {
+    try {
+      const r = await fetch(url, { headers });
+      if (r.ok) {
+        const data = await r.json();
+        allFixtures = allFixtures.concat(data.response || []);
+      }
+    } catch {}
   }
 
-  // Debug mode: return raw API response so we can inspect statuses and TLAs
+  // Debug: return raw data so we can inspect names, codes, statuses
   if (debug) {
     return res.status(200).json({
-      url,
-      total: fdData.matches?.length ?? 0,
-      matches: (fdData.matches || []).map(m => ({
-        utcDate: m.utcDate,
-        status: m.status,
-        minute: m.minute,
-        homeTla: m.homeTeam?.tla,
-        awayTla: m.awayTeam?.tla,
-        score: m.score,
+      total: allFixtures.length,
+      fixtures: allFixtures.map(f => ({
+        date: f.fixture?.date,
+        status: f.fixture?.status?.short,
+        elapsed: f.fixture?.status?.elapsed,
+        homeName: f.teams?.home?.name,
+        awayName: f.teams?.away?.name,
+        goals: f.goals,
+        score: f.score,
       })),
     });
   }
@@ -145,48 +140,58 @@ export default async function handler(req, res) {
   const upserts = [];
   const skipped = [];
 
-  for (const m of (fdData.matches || [])) {
-    const { status, score, minute, homeTeam, awayTeam, utcDate } = m;
+  for (const f of allFixtures) {
+    const statusShort = f.fixture?.status?.short;
 
-    // Only process matches that have started
-    if (!['IN_PLAY', 'PAUSED', 'HALF_TIME', 'FINISHED', 'SUSPENDED'].includes(status)) continue;
+    if (!LIVE_STATUS.has(statusShort) && !FINISH_STATUS.has(statusShort)) continue;
 
-    const homeTla = TLA_MAP[homeTeam?.tla] || homeTeam?.tla;
-    const awayTla = TLA_MAP[awayTeam?.tla] || awayTeam?.tla;
-    if (!homeTla || !awayTla) { skipped.push({ reason: 'no tla', utcDate }); continue; }
+    // Map team names → our internal codes
+    const homeCode = NAME_MAP[f.teams?.home?.name];
+    const awayCode = NAME_MAP[f.teams?.away?.name];
+    if (!homeCode || !awayCode) {
+      skipped.push({ reason: 'unknown team name', home: f.teams?.home?.name, away: f.teams?.away?.name });
+      continue;
+    }
 
-    const matchId = resolveMatchId(homeTla, awayTla, utcDate);
-    if (!matchId) { skipped.push({ reason: 'no match id', home: homeTla, away: awayTla }); continue; }
+    const matchId = resolveMatchId(homeCode, awayCode, f.fixture?.date);
+    if (!matchId) {
+      skipped.push({ reason: 'no match id', home: homeCode, away: awayCode });
+      continue;
+    }
 
-    const isKO = matchId.startsWith('M');
-    const fullHome = score?.fullTime?.home;
-    const fullAway = score?.fullTime?.away;
-    // During the game fullTime is null — use currentScore or halftime
-    const currentHome = fullHome ?? score?.halfTime?.home ?? 0;
-    const currentAway = fullAway ?? score?.halfTime?.away ?? 0;
+    const isKO     = matchId.startsWith('M');
+    const liveHome = f.goals?.home ?? 0;
+    const liveAway = f.goals?.away ?? 0;
 
     const row = { match_id: matchId };
 
-    if (status === 'FINISHED') {
-      row.status     = 'final';
-      row.home_score = fullHome;
-      row.away_score = fullAway;
+    if (FINISH_STATUS.has(statusShort)) {
+      const ending = ENDING_MAP[statusShort] || 'NT';
+      // For penalty shootouts, store the shootout score (not the match score)
+      const finalHome = statusShort === 'PEN'
+        ? (f.score?.penalty?.home ?? liveHome)
+        : (f.score?.fulltime?.home ?? liveHome);
+      const finalAway = statusShort === 'PEN'
+        ? (f.score?.penalty?.away ?? liveAway)
+        : (f.score?.fulltime?.away ?? liveAway);
+
+      row.status      = 'final';
+      row.home_score  = finalHome;
+      row.away_score  = finalAway;
       row.live_minute = null;
-      // KO ending: football-data.org doesn't expose NT/ET/PENS in the free tier,
-      // so we default to NT and let admin correct if needed.
-      if (isKO) row.ending = 'NT';
+      if (isKO) row.ending = ending;
     } else {
-      // IN_PLAY, PAUSED, HALF_TIME, SUSPENDED → treat as live
-      row.status     = 'live';
-      row.home_score = currentHome;
-      row.away_score = currentAway;
-      row.live_minute = minute ?? (status === 'HALF_TIME' || status === 'PAUSED' ? 45 : null);
+      // Live match
+      row.status      = 'live';
+      row.home_score  = liveHome;
+      row.away_score  = liveAway;
+      row.live_minute = f.fixture?.status?.elapsed ?? null;
     }
 
-    // For KO matches: capture team codes once known so the bracket populates
-    if (isKO && homeTla !== 'TBD' && awayTla !== 'TBD') {
-      row.home_code = homeTla;
-      row.away_code = awayTla;
+    // KO matches: store team codes so bracket populates once known
+    if (isKO) {
+      row.home_code = homeCode;
+      row.away_code = awayCode;
     }
 
     upserts.push(row);
