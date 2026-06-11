@@ -95,8 +95,8 @@ export default async function handler(req, res) {
 
   const supabase = createClient(supabaseUrl, supabaseService);
 
-  const RAPIDAPI_HOST = 'api-football-v1.p.rapidapi.com';
-  const headers = { 'X-RapidAPI-Key': apiKey, 'X-RapidAPI-Host': RAPIDAPI_HOST };
+  const BASE = 'https://v3.football.api-sports.io';
+  const headers = { 'x-apisports-key': apiKey };
 
   // Fetch yesterday + today to catch late-night matches in all timezones
   const now  = new Date();
@@ -106,8 +106,8 @@ export default async function handler(req, res) {
   // Fetch today's WC matches (league 1 = FIFA World Cup, season 2026)
   // and yesterday's in case of overnight games still in progress
   const urls = [
-    `https://${RAPIDAPI_HOST}/v3/fixtures?league=1&season=2026&date=${fmt(now)}`,
-    `https://${RAPIDAPI_HOST}/v3/fixtures?league=1&season=2026&date=${fmt(yesterday)}`,
+    `${BASE}/fixtures?league=1&season=2026&date=${fmt(now)}`,
+    `${BASE}/fixtures?league=1&season=2026&date=${fmt(yesterday)}`,
   ];
 
   let allFixtures = [];
