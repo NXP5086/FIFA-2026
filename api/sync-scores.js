@@ -106,8 +106,8 @@ export default async function handler(req, res) {
   // Fetch today's WC matches (league 1 = FIFA World Cup, season 2026)
   // and yesterday's in case of overnight games still in progress
   const urls = [
-    `${BASE}/fixtures?league=1&season=2026&date=${fmt(now)}`,
-    `${BASE}/fixtures?league=1&season=2026&date=${fmt(yesterday)}`,
+    `${BASE}/fixtures?league=1&date=${fmt(now)}`,
+    `${BASE}/fixtures?league=1&date=${fmt(yesterday)}`,
   ];
 
   let allFixtures = [];
