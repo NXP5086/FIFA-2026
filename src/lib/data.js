@@ -406,7 +406,6 @@ function firstKickoff(predicate) {
 const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
 
 export const LOCK_WINDOWS = (function () {
-  const md1First   = firstKickoff(m => m.stage === "GROUP" && m.matchday === 1);
   const md23First  = firstKickoff(m => m.stage === "GROUP" && m.matchday === 2);
   const r32First   = firstKickoff(m => m.stage === "R32");
   const r16First   = firstKickoff(m => m.stage === "R16");
@@ -414,7 +413,7 @@ export const LOCK_WINDOWS = (function () {
   const sfFirst    = firstKickoff(m => m.stage === "SF");
   const tpFirst    = firstKickoff(m => m.stage === "3RD");
   return {
-    MD1:    md1First   ? md1First   - TWO_HOURS_MS : null,
+    MD1:    new Date("2026-06-11T18:15:00Z").getTime(), // 11:45 PM IST June 11
     MD23:   md23First  ? md23First  - TWO_HOURS_MS : null,
     R32:    r32First   ? r32First   - TWO_HOURS_MS : null,
     R16:    r16First   ? r16First   - TWO_HOURS_MS : null,
