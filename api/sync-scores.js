@@ -60,7 +60,8 @@ const KICKOFFS = {
   'M104':'2026-07-19T19:00:00Z',
 };
 
-const WINDOW_MS = 3.5 * 60 * 60 * 1000;
+const GROUP_WINDOW_MS = 2.75 * 60 * 60 * 1000; // 2h45m — group games can't go to ET
+const KO_WINDOW_MS    = 3.5  * 60 * 60 * 1000; // 3h30m — covers ET + penalties
 
 // api-football.com team name → our internal team code
 // Using names because the API's team.code field is unreliable across seasons
@@ -162,7 +163,11 @@ export default async function handler(req, res) {
 
   // Guard: only call the external API while a match is in its live window.
   const inWindowIds = Object.entries(KICKOFFS)
-    .filter(([, kickoff]) => { const ko = new Date(kickoff).getTime(); return nowMs >= ko && nowMs < ko + WINDOW_MS; })
+    .filter(([id, kickoff]) => {
+      const ko = new Date(kickoff).getTime();
+      const windowMs = id.startsWith('M') ? KO_WINDOW_MS : GROUP_WINDOW_MS;
+      return nowMs >= ko && nowMs < ko + windowMs;
+    })
     .map(([id]) => id);
 
   if (inWindowIds.length === 0) {

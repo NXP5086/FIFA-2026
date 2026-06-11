@@ -77,7 +77,8 @@ const KICKOFFS: Record<string, string> = {
   'M104':'2026-07-19T19:00:00Z',
 };
 
-const WINDOW_MS = 3.5 * 60 * 60 * 1000; // 3.5 hours in ms
+const GROUP_WINDOW_MS = 2.75 * 60 * 60 * 1000; // group games can't go to ET
+const KO_WINDOW_MS    = 3.5  * 60 * 60 * 1000; // covers ET + penalties
 
 // Map from football-data.org team TLA → our team code (where they differ)
 const CODE_MAP: Record<string, string> = {
@@ -159,9 +160,10 @@ Deno.serve(async () => {
 
   // Find match IDs whose live window overlaps with right now.
   const inWindowIds = Object.entries(KICKOFFS)
-    .filter(([, kickoff]) => {
+    .filter(([id, kickoff]) => {
       const ko = new Date(kickoff).getTime();
-      return nowMs >= ko && nowMs < ko + WINDOW_MS;
+      const windowMs = id.startsWith('M') ? KO_WINDOW_MS : GROUP_WINDOW_MS;
+      return nowMs >= ko && nowMs < ko + windowMs;
     })
     .map(([id]) => id);
 
