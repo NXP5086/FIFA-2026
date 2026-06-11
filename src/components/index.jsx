@@ -183,6 +183,14 @@ function MatchCard({ match, prediction, onPredict, locked: lockedProp, nowMs }) 
   const venue = VENUES[match.venue];
   const isFinal = !!match.result;
   const isLive = !!match.live && !isFinal;
+
+  // Time-window detection: match is probably happening but admin hasn't entered score yet
+  const WINDOW_MS = 115 * 60 * 1000;
+  const kickMs = match.date ? new Date(match.date).getTime() : null;
+  const nowTime = nowMs || Date.now();
+  const isInWindow = !isFinal && !isLive && kickMs != null
+    && nowTime >= kickMs && nowTime < kickMs + WINDOW_MS;
+  const estMinute = isInWindow ? Math.min(90, Math.floor((nowTime - kickMs) / 60000)) : null;
   const isSubmitted = !!(prediction && prediction.submitted);
   const isKO = isKnockout(match);
   const isTBD = match.home === "TBD" || match.away === "TBD";
@@ -253,7 +261,7 @@ function MatchCard({ match, prediction, onPredict, locked: lockedProp, nowMs }) 
     : { code: away.code, name: away.name };
 
   return (
-    <div className={`match ${isFinal ? "completed" : ""} ${isLive ? "live" : ""} ${isSubmitted && !isFinal && !isLive ? "submitted" : ""} ${isKO ? "knockout" : ""} ${isTBD ? "tbd" : ""} ${locked ? "locked" : ""}`}>
+    <div className={`match ${isFinal ? "completed" : ""} ${isLive ? "live" : ""} ${isInWindow && !isLive ? "in-window" : ""} ${isSubmitted && !isFinal && !isLive ? "submitted" : ""} ${isKO ? "knockout" : ""} ${isTBD ? "tbd" : ""} ${locked ? "locked" : ""}`}>
       <div className="match-meta">
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
           <span className={`badge-group ${isKO ? "ko" : ""}`}>{stageBadge}</span>
@@ -266,6 +274,11 @@ function MatchCard({ match, prediction, onPredict, locked: lockedProp, nowMs }) 
             <span className="status-live">
               <span className="live-dot"></span>
               LIVE · {match.live.minute}'
+            </span>
+          ) : isInWindow ? (
+            <span className="status-inwindow">
+              <span className="live-dot inwindow"></span>
+              IN PROGRESS · ~{estMinute}'
             </span>
           ) : isFinal ? (
             <span className="status-final">● FULL TIME</span>

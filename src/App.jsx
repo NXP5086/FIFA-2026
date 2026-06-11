@@ -108,6 +108,27 @@ function AppShell() {
       .finally(() => setLoading(false));
   }, [profile]);
 
+  // Call the Vercel sync-scores function, then refresh from Supabase
+  const syncScores = useCallback(async () => {
+    try {
+      await fetch('/api/sync-scores');
+    } catch {}
+    const { data } = await supabase.from('match_results').select('*');
+    if (data) {
+      const map = {};
+      data.forEach(r => { map[r.match_id] = r; });
+      setMatchResults(map);
+      setLastSync(new Date());
+    }
+  }, []);
+
+  // Admin auto-polls every 2 minutes while on the schedule page
+  useEffect(() => {
+    if (!profile || !isAdmin || view !== 'schedule') return;
+    const t = setInterval(syncScores, 2 * 60 * 1000);
+    return () => clearInterval(t);
+  }, [profile, isAdmin, view, syncScores]);
+
   // Realtime: match results + award winners push to all clients instantly
   useEffect(() => {
     if (!profile) return;
@@ -209,15 +230,7 @@ function AppShell() {
       <LiveSyncStrip
         matches={enrichedMatches}
         lastSync={lastSync}
-        onSync={async () => {
-          const { data } = await supabase.from('match_results').select('*');
-          if (data) {
-            const map = {};
-            data.forEach(r => { map[r.match_id] = r; });
-            setMatchResults(map);
-            setLastSync(new Date());
-          }
-        }}
+        onSync={syncScores}
       />
       <main>
         {loading ? (

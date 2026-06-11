@@ -1524,12 +1524,31 @@ main {
   border-color: var(--heat);
   box-shadow: 0 0 0 1px var(--heat);
 }
+.match.in-window {
+  border-color: #F59E0B;
+  box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.4);
+}
 .match-meta .status-live {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   color: var(--heat);
   font-weight: 700;
+}
+.match-meta .status-inwindow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #D97706;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+}
+.live-dot.inwindow {
+  background: #F59E0B;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.25);
+  animation-duration: 1.6s;
 }
 .score-input.final.live .actual {
   background: var(--heat);
@@ -1538,6 +1557,34 @@ main {
 .score-input.final.live .label {
   color: var(--heat);
   font-weight: 700;
+}
+
+/* ============ LIVE NOW BANNER ============ */
+.live-now-banner {
+  margin-bottom: 32px;
+  padding: 20px 24px 24px;
+  border: 1.5px solid var(--heat);
+  border-radius: 4px;
+  background: rgba(220, 38, 38, 0.03);
+}
+.live-now-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.live-now-title {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--heat);
+}
+.live-now-count {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-3);
+  letter-spacing: 0.06em;
 }
 /* ============ RULES PAGE ============ */
 .rules-grid {

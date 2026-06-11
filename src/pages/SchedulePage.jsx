@@ -90,6 +90,18 @@ function SchedulePage({ activeUserId, predictions, onPredict, matches: MATCHES, 
     onPredict(matchId, pred);
   };
 
+  // Matches that are currently live (admin-confirmed) or in their time window
+  const MATCH_WINDOW_MS = 115 * 60 * 1000; // 90 min + stoppage buffer
+  const liveOrInWindow = useMemo(() => {
+    return MATCHES.filter(m => {
+      if (m.result) return false; // already final
+      if (m.live) return true;    // admin-confirmed live
+      if (m.home === 'TBD' || m.away === 'TBD') return false;
+      const kick = new Date(m.date).getTime();
+      return nowMs >= kick && nowMs < kick + MATCH_WINDOW_MS;
+    });
+  }, [MATCHES, nowMs]);
+
   // stats for this user (counts submitted only, across whichever phase is active)
   const userStats = useMemo(() => {
     const user = USERS.find(u => u.id === activeUserId);
@@ -125,6 +137,28 @@ function SchedulePage({ activeUserId, predictions, onPredict, matches: MATCHES, 
           <div style={{ color: "var(--grass-deep)" }}>Each round locks 2h before its first match</div>
         </div>
       </div>
+
+      {/* Live Now banner — shows admin-confirmed live + time-window matches */}
+      {liveOrInWindow.length > 0 && (
+        <div className="live-now-banner">
+          <div className="live-now-header">
+            <span className="live-dot"></span>
+            <span className="live-now-title">LIVE NOW</span>
+            <span className="live-now-count">{liveOrInWindow.length} {liveOrInWindow.length === 1 ? 'match' : 'matches'} in progress</span>
+          </div>
+          <div className="matches-grid">
+            {liveOrInWindow.map(m => (
+              <MatchCard
+                key={m.id}
+                match={m}
+                prediction={predictions[`${activeUserId}:${m.id}`]}
+                onPredict={(p) => handlePredict(m.id, p)}
+                nowMs={nowMs}
+              />
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Phase tabs */}
       <div className="phase-tabs">
