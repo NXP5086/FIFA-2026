@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import {
   USERS,
   TEAMS,
+  TEAM_FLAGS,
   VENUES,
   MATCHES,
   scorePrediction,
@@ -28,11 +29,19 @@ function LockStatus({ lockKey, nowMs }) {
 
 // ---------- atomic ----------
 function Flag({ team }) {
+  const emoji = TEAM_FLAGS[team.code];
   return (
     <div className="flag" aria-label={team.name}>
-      <span style={{ background: team.c1 }} />
-      <span style={{ background: team.c2 }} />
-      <span style={{ background: team.c3 }} />
+      {emoji
+        ? <span className="flag-emoji">{emoji}</span>
+        : (
+          <>
+            <span style={{ background: team.c1 }} />
+            <span style={{ background: team.c2 }} />
+            <span style={{ background: team.c3 }} />
+          </>
+        )
+      }
     </div>
   );
 }

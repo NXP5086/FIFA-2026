@@ -1019,12 +1019,14 @@ main {
   height: 26px;
   border-radius: 1px;
   flex-shrink: 0;
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   overflow: hidden;
   border: 1px solid rgba(14, 17, 22, 0.08);
 }
-.flag span { display: block; height: 100%; }
+.flag-emoji { font-size: 22px; line-height: 1; }
+.flag span:not(.flag-emoji) { display: block; height: 100%; }
 .team-name {
   display: flex;
   flex-direction: column;
