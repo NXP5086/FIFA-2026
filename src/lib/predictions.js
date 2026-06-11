@@ -7,11 +7,10 @@ import { lockKeyForMatch, MATCHES } from './data.js';
 // Load ALL match predictions from DB (all users, submitted + drafts).
 // Returns the same map format the app uses: { 'u1:G01': {home,away,...} }
 export async function loadAllPredictionsFromDB(supabase) {
-  const { data, error, count } = await supabase
+  const { data, error } = await supabase
     .from('predictions')
-    .select('internal_user_id, match_id, home, away, ending, submitted, submitted_at', { count: 'exact' })
+    .select('internal_user_id, match_id, home, away, ending, submitted, submitted_at')
     .limit(10000);
-  console.log('[loadAllPredictions] rows returned:', data?.length, '/ total in DB:', count);
   if (error) throw error;
   const map = {};
   (data || []).forEach(r => {
@@ -41,11 +40,9 @@ export async function upsertPrediction(supabase, userId, internalUserId, matchId
     submitted: predData.submitted || false,
     submitted_at: predData.submitted ? (predData.submitted_at || new Date().toISOString()) : null,
   };
-  console.log('[upsertPrediction] row:', row);
   const { error } = await supabase
     .from('predictions')
     .upsert(row, { onConflict: 'user_id,match_id' });
-  console.log('[upsertPrediction] result:', error ?? 'ok');
   if (error) throw error;
 }
 

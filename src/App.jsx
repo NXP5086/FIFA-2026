@@ -146,8 +146,7 @@ function AppShell() {
     setPredictions(prev => ({ ...prev, [key]: predData }));
     try {
       await upsertPrediction(supabase, session.user.id, activeUserId, matchId, predData);
-    } catch (err) {
-      console.error('[prediction save error]', { matchId, predData, err });
+    } catch {
       showToast('Save failed — check your connection.');
     }
   }, [profile, activeUserId, session]);
@@ -158,8 +157,7 @@ function AppShell() {
     setAwardPredictions(prev => ({ ...prev, [key]: predData }));
     try {
       await upsertAwardPrediction(supabase, session.user.id, activeUserId, awardId, predData);
-    } catch (err) {
-      console.error('[award save error]', { awardId, predData, err });
+    } catch {
       showToast('Save failed — check your connection.');
     }
   }, [profile, activeUserId, session]);
