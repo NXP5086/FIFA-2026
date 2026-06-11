@@ -14,6 +14,8 @@ import PickReveal from './PickReveal.jsx';
 
 
 function LeaderboardPage({ activeUserId, predictions, awardPredictions, awardWinners = {}, matches: MATCHES, setView }) {
+  const liveMatchesList = useMemo(() => MATCHES.filter(m => m.live), [MATCHES]);
+
   // Compute stats per user
   const rankings = useMemo(() => {
     const finals = MATCHES.filter(m => m.result);
@@ -43,9 +45,18 @@ function LeaderboardPage({ activeUserId, predictions, awardPredictions, awardWin
         if (earned > 0) { awardsHit++; awardsPts += earned; }
       });
       pts += awardsPts;
+      // Provisional points from in-progress matches (+3 outcome / +5 exact)
+      let livePts = 0;
+      liveMatchesList.forEach(m => {
+        const p = predictions[`${u.id}:${m.id}`];
+        if (!p || !p.submitted || p.home === null || p.away === null) return;
+        const s = scorePrediction(p, m.live.score);
+        if (s) livePts += s.pts;
+      });
       return {
         user: u,
         pts,
+        livePts,
         exact,
         outcome,
         picks,
@@ -53,8 +64,8 @@ function LeaderboardPage({ activeUserId, predictions, awardPredictions, awardWin
         awardsPts,
         acc: picks > 0 ? Math.round(((exact + outcome) / picks) * 100) : 0
       };
-    }).sort((a, b) => b.pts - a.pts || b.exact - a.exact || b.outcome - a.outcome);
-  }, [predictions, awardPredictions, awardWinners, MATCHES]);
+    }).sort((a, b) => (b.pts + b.livePts) - (a.pts + a.livePts) || b.exact - a.exact || b.outcome - a.outcome);
+  }, [predictions, awardPredictions, awardWinners, MATCHES, liveMatchesList]);
 
   const finalsCount = MATCHES.filter(m => m.result).length;
   const totalMatches = MATCHES.length;
@@ -109,10 +120,22 @@ function LeaderboardPage({ activeUserId, predictions, awardPredictions, awardWin
         </div>
         <div className="page-meta">
           <div><strong>{USERS.length}</strong> players in the pool</div>
-          {me && <div>You: <strong>#{myRank}</strong> · {me.pts} pts</div>}
-          <div style={{ color: "var(--grass-deep)" }}>Updates after each full-time whistle</div>
+          {me && <div>You: <strong>#{myRank}</strong> · {me.pts + me.livePts} pts{me.livePts > 0 ? ` (${me.livePts} live)` : ''}</div>}
+          <div style={{ color: liveMatchesList.length > 0 ? "var(--heat)" : "var(--grass-deep)" }}>
+            {liveMatchesList.length > 0 ? `${liveMatchesList.length} match${liveMatchesList.length > 1 ? 'es' : ''} live — points updating` : 'Updates after each full-time whistle'}
+          </div>
         </div>
       </div>
+
+      {liveMatchesList.length > 0 && (
+        <div className="live-now-banner" style={{ marginBottom: 24 }}>
+          <div className="live-now-header" style={{ marginBottom: 0 }}>
+            <span className="live-dot" />
+            <span className="live-now-title">LIVE — Points updating as goals go in</span>
+            <span className="live-now-count">{liveMatchesList.length} match{liveMatchesList.length > 1 ? 'es' : ''} in progress · provisional</span>
+          </div>
+        </div>
+      )}
 
       <div className="leaderboard-layout">
         <div>
@@ -134,7 +157,8 @@ function LeaderboardPage({ activeUserId, predictions, awardPredictions, awardWin
                   }}>{entry.user.initials}</div>
                   <div className="podium-name">{entry.user.name}</div>
                   <div className="podium-pts">
-                    <strong>{entry.pts}</strong> PTS
+                    <strong>{entry.pts + entry.livePts}</strong> PTS
+                    {entry.livePts > 0 && <span className="live-dot" style={{ marginLeft: 8, verticalAlign: 'middle' }} />}
                   </div>
                 </div>
               ))}
@@ -181,7 +205,15 @@ function LeaderboardPage({ activeUserId, predictions, awardPredictions, awardWin
                   {r.acc}%
                   <span className="sub">hit-rate</span>
                 </div>
-                <div className="rank-pts">{r.pts}</div>
+                <div className="rank-pts">
+                  {r.pts + r.livePts}
+                  {r.livePts > 0 && (
+                    <div className="rank-pts-live">
+                      <span className="live-dot" style={{ width: 6, height: 6 }} />
+                      +{r.livePts} live
+                    </div>
+                  )}
+                </div>
               </div>
             ))}
           </div>

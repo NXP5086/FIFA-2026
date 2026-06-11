@@ -1356,6 +1356,18 @@ main {
   font-weight: 800;
   letter-spacing: -0.02em;
 }
+.rank-pts-live {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 5px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--heat);
+  margin-top: 3px;
+}
 
 /* ============ SIDEBAR (leaderboard) ============ */
 .sidebar { display: flex; flex-direction: column; gap: 16px; }
