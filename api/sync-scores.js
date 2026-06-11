@@ -121,18 +121,28 @@ export default async function handler(req, res) {
     } catch {}
   }
 
-  // Debug: return raw data so we can inspect names, codes, statuses
+  // Debug: also fetch today without league filter + search for WC league
   if (debug) {
+    const fmt2 = d => d.toISOString().split('T')[0];
+    const [leagueRes, todayRes] = await Promise.all([
+      fetch(`${BASE}/leagues?name=World Cup&season=2026`, { headers }).then(r => r.json()).catch(e => ({ error: e.message })),
+      fetch(`${BASE}/fixtures?date=${fmt2(now)}`, { headers }).then(r => r.json()).catch(e => ({ error: e.message })),
+    ]);
     return res.status(200).json({
-      total: allFixtures.length,
-      fixtures: allFixtures.map(f => ({
-        date: f.fixture?.date,
-        status: f.fixture?.status?.short,
-        elapsed: f.fixture?.status?.elapsed,
-        homeName: f.teams?.home?.name,
-        awayName: f.teams?.away?.name,
+      // What the league search returned (shows correct league ID)
+      wc_league_search: leagueRes?.response?.map(l => ({ id: l.league?.id, name: l.league?.name, season: l.seasons?.at(-1)?.year })),
+      // All fixtures today across all leagues — look for MEX/RSA here
+      today_all_leagues: {
+        total: todayRes?.response?.length ?? 0,
+        wc_only: todayRes?.response
+          ?.filter(f => f.league?.name?.toLowerCase().includes('world'))
+          ?.map(f => ({ leagueId: f.league?.id, leagueName: f.league?.name, home: f.teams?.home?.name, away: f.teams?.away?.name, status: f.fixture?.status?.short })),
+      },
+      // Original league=1 result
+      league1_fixtures: allFixtures.map(f => ({
+        date: f.fixture?.date, status: f.fixture?.status?.short,
+        homeName: f.teams?.home?.name, awayName: f.teams?.away?.name,
         goals: f.goals,
-        score: f.score,
       })),
     });
   }
