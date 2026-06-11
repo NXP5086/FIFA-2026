@@ -94,6 +94,8 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   if (req.method === 'OPTIONS') return res.status(200).end();
 
+  const debug = req.query?.debug === '1';
+
   const apiKey          = process.env.FOOTBALL_DATA_API_KEY;
   const supabaseUrl     = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
   const supabaseService = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -110,19 +112,34 @@ export default async function handler(req, res) {
   const to   = new Date(now); to.setDate(to.getDate() + 1);
   const fmt  = d => d.toISOString().split('T')[0];
 
+  const url = `https://api.football-data.org/v4/competitions/WC/matches?dateFrom=${fmt(from)}&dateTo=${fmt(to)}`;
+
   let fdData;
   try {
-    const fdRes = await fetch(
-      `https://api.football-data.org/v4/competitions/WC/matches?dateFrom=${fmt(from)}&dateTo=${fmt(to)}`,
-      { headers: { 'X-Auth-Token': apiKey } }
-    );
+    const fdRes = await fetch(url, { headers: { 'X-Auth-Token': apiKey } });
     if (!fdRes.ok) {
       const text = await fdRes.text();
-      return res.status(502).json({ error: `football-data.org ${fdRes.status}`, detail: text });
+      return res.status(502).json({ error: `football-data.org ${fdRes.status}`, detail: text, url });
     }
     fdData = await fdRes.json();
   } catch (err) {
     return res.status(502).json({ error: 'Failed to reach football-data.org', detail: err.message });
+  }
+
+  // Debug mode: return raw API response so we can inspect statuses and TLAs
+  if (debug) {
+    return res.status(200).json({
+      url,
+      total: fdData.matches?.length ?? 0,
+      matches: (fdData.matches || []).map(m => ({
+        utcDate: m.utcDate,
+        status: m.status,
+        minute: m.minute,
+        homeTla: m.homeTeam?.tla,
+        awayTla: m.awayTeam?.tla,
+        score: m.score,
+      })),
+    });
   }
 
   const upserts = [];
