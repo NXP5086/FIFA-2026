@@ -98,27 +98,26 @@ export default async function handler(req, res) {
   const BASE = 'https://v3.football.api-sports.io';
   const headers = { 'x-apisports-key': apiKey };
 
-  // Fetch yesterday + today to catch late-night matches in all timezones
+  // Fetch yesterday + today across all leagues, then filter to WC matches
+  // (league=1 filter causes empty results; fetching all and filtering is reliable)
   const now  = new Date();
   const yesterday = new Date(now); yesterday.setDate(yesterday.getDate() - 1);
   const fmt = d => d.toISOString().split('T')[0];
 
-  // Fetch today's WC matches (league 1 = FIFA World Cup, season 2026)
-  // and yesterday's in case of overnight games still in progress
-  const urls = [
-    `${BASE}/fixtures?league=1&date=${fmt(now)}`,
-    `${BASE}/fixtures?league=1&date=${fmt(yesterday)}`,
-  ];
-
   let allFixtures = [];
-  for (const url of urls) {
+  const fetchErrors = [];
+  for (const date of [fmt(now), fmt(yesterday)]) {
     try {
-      const r = await fetch(url, { headers });
-      if (r.ok) {
-        const data = await r.json();
-        allFixtures = allFixtures.concat(data.response || []);
-      }
-    } catch {}
+      const r = await fetch(`${BASE}/fixtures?date=${date}`, { headers });
+      const text = await r.text();
+      if (!r.ok) { fetchErrors.push(`${date}: HTTP ${r.status} ${text}`); continue; }
+      const data = JSON.parse(text);
+      // Keep only World Cup matches (league id 1)
+      const wc = (data.response || []).filter(f => f.league?.id === 1);
+      allFixtures = allFixtures.concat(wc);
+    } catch (e) {
+      fetchErrors.push(`${date}: ${e.message}`);
+    }
   }
 
   // Debug: also fetch today without league filter + search for WC league
@@ -208,7 +207,7 @@ export default async function handler(req, res) {
   }
 
   if (upserts.length === 0) {
-    return res.status(200).json({ updated: 0, skipped, message: 'No active matches right now' });
+    return res.status(200).json({ updated: 0, skipped, fetchErrors, message: 'No active matches right now' });
   }
 
   const { error } = await supabase
