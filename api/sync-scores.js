@@ -1,5 +1,67 @@
 import { createClient } from '@supabase/supabase-js';
 
+// All 104 WC 2026 kickoff times in UTC (derived from data.js et() values).
+// The function skips the external API call unless now is within [kickoff, kickoff + 3.5h)
+// AND at least one in-window match is not yet 'final' in our DB.
+// At 5-min intervals this caps daily usage at ~96 calls on the busiest days.
+const KICKOFFS = {
+  'G01':'2026-06-11T19:00:00Z','G02':'2026-06-12T02:00:00Z',
+  'G07':'2026-06-12T19:00:00Z','G19':'2026-06-13T01:00:00Z',
+  'G08':'2026-06-13T19:00:00Z','G13':'2026-06-13T22:00:00Z',
+  'G14':'2026-06-14T01:00:00Z','G20':'2026-06-14T04:00:00Z',
+  'G25':'2026-06-14T17:00:00Z','G31':'2026-06-14T20:00:00Z',
+  'G26':'2026-06-14T23:00:00Z','G32':'2026-06-15T02:00:00Z',
+  'G43':'2026-06-15T16:00:00Z','G37':'2026-06-15T19:00:00Z',
+  'G44':'2026-06-15T22:00:00Z','G38':'2026-06-16T01:00:00Z',
+  'G49':'2026-06-16T19:00:00Z','G50':'2026-06-16T22:00:00Z',
+  'G55':'2026-06-17T01:00:00Z','G56':'2026-06-18T04:00:00Z',
+  'G61':'2026-06-17T17:00:00Z','G67':'2026-06-17T20:00:00Z',
+  'G68':'2026-06-17T23:00:00Z','G62':'2026-06-18T02:00:00Z',
+  'G03':'2026-06-18T16:00:00Z','G09':'2026-06-18T19:00:00Z',
+  'G10':'2026-06-18T22:00:00Z','G04':'2026-06-19T01:00:00Z',
+  'G21':'2026-06-19T19:00:00Z','G15':'2026-06-19T22:00:00Z',
+  'G16':'2026-06-20T01:00:00Z','G22':'2026-06-20T04:00:00Z',
+  'G33':'2026-06-20T17:00:00Z','G27':'2026-06-20T20:00:00Z',
+  'G28':'2026-06-21T00:00:00Z','G34':'2026-06-21T04:00:00Z',
+  'G45':'2026-06-21T16:00:00Z','G39':'2026-06-21T19:00:00Z',
+  'G46':'2026-06-21T22:00:00Z','G40':'2026-06-22T01:00:00Z',
+  'G57':'2026-06-22T17:00:00Z','G51':'2026-06-22T21:00:00Z',
+  'G52':'2026-06-23T00:00:00Z','G58':'2026-06-23T03:00:00Z',
+  'G63':'2026-06-23T17:00:00Z','G69':'2026-06-23T20:00:00Z',
+  'G70':'2026-06-23T23:00:00Z','G64':'2026-06-24T02:00:00Z',
+  'G11':'2026-06-24T19:00:00Z','G12':'2026-06-24T19:00:00Z',
+  'G17':'2026-06-24T22:00:00Z','G18':'2026-06-24T22:00:00Z',
+  'G05':'2026-06-25T01:00:00Z','G06':'2026-06-25T01:00:00Z',
+  'G29':'2026-06-25T20:00:00Z','G30':'2026-06-25T20:00:00Z',
+  'G35':'2026-06-25T23:00:00Z','G36':'2026-06-25T23:00:00Z',
+  'G23':'2026-06-26T02:00:00Z','G24':'2026-06-26T02:00:00Z',
+  'G53':'2026-06-26T19:00:00Z','G54':'2026-06-26T19:00:00Z',
+  'G47':'2026-06-27T00:00:00Z','G48':'2026-06-27T00:00:00Z',
+  'G41':'2026-06-27T03:00:00Z','G42':'2026-06-27T03:00:00Z',
+  'G71':'2026-06-27T21:00:00Z','G72':'2026-06-27T21:00:00Z',
+  'G65':'2026-06-27T23:30:00Z','G66':'2026-06-27T23:30:00Z',
+  'G59':'2026-06-28T02:00:00Z','G60':'2026-06-28T02:00:00Z',
+  'M73':'2026-06-28T19:00:00Z',
+  'M76':'2026-06-29T17:00:00Z','M74':'2026-06-29T20:30:00Z','M75':'2026-06-30T01:00:00Z',
+  'M78':'2026-06-30T17:00:00Z','M77':'2026-06-30T21:00:00Z','M79':'2026-07-01T01:00:00Z',
+  'M80':'2026-07-01T16:00:00Z','M82':'2026-07-01T20:00:00Z','M81':'2026-07-02T00:00:00Z',
+  'M84':'2026-07-02T19:00:00Z','M83':'2026-07-02T23:00:00Z','M85':'2026-07-03T03:00:00Z',
+  'M88':'2026-07-03T18:00:00Z','M86':'2026-07-03T22:00:00Z','M87':'2026-07-04T01:30:00Z',
+  'M90':'2026-07-04T17:00:00Z','M89':'2026-07-04T21:00:00Z',
+  'M91':'2026-07-05T20:00:00Z','M92':'2026-07-06T00:00:00Z',
+  'M93':'2026-07-06T19:00:00Z','M94':'2026-07-07T00:00:00Z',
+  'M95':'2026-07-07T16:00:00Z','M96':'2026-07-07T20:00:00Z',
+  'M97':'2026-07-09T20:00:00Z',
+  'M98':'2026-07-10T20:00:00Z',
+  'M99':'2026-07-11T16:00:00Z','M100':'2026-07-11T20:00:00Z',
+  'M101':'2026-07-14T19:00:00Z',
+  'M102':'2026-07-15T19:00:00Z',
+  'M103':'2026-07-18T19:00:00Z',
+  'M104':'2026-07-19T19:00:00Z',
+};
+
+const WINDOW_MS = 3.5 * 60 * 60 * 1000;
+
 // api-football.com team name → our internal team code
 // Using names because the API's team.code field is unreliable across seasons
 const NAME_MAP = {
@@ -95,29 +157,48 @@ export default async function handler(req, res) {
 
   const supabase = createClient(supabaseUrl, supabaseService);
 
+  const now   = new Date();
+  const nowMs = now.getTime();
+
+  // Guard: only call the external API while a match is in its live window.
+  const inWindowIds = Object.entries(KICKOFFS)
+    .filter(([, kickoff]) => { const ko = new Date(kickoff).getTime(); return nowMs >= ko && nowMs < ko + WINDOW_MS; })
+    .map(([id]) => id);
+
+  if (inWindowIds.length === 0) {
+    return res.status(200).json({ updated: 0, skipped: true, reason: 'no matches in live window' });
+  }
+
+  // Stop polling once all in-window matches are already final in our DB.
+  const { data: notFinal } = await supabase
+    .from('match_results').select('match_id')
+    .in('match_id', inWindowIds).neq('status', 'final').limit(1);
+  const { data: existing } = await supabase
+    .from('match_results').select('match_id').in('match_id', inWindowIds);
+  const existingSet = new Set((existing ?? []).map(r => r.match_id));
+  const hasUnsynced = inWindowIds.some(id => !existingSet.has(id));
+
+  if (!hasUnsynced && (!notFinal || notFinal.length === 0)) {
+    return res.status(200).json({ updated: 0, skipped: true, reason: 'all in-window matches already final' });
+  }
+
   const BASE = 'https://v3.football.api-sports.io';
   const headers = { 'x-apisports-key': apiKey };
 
-  // Fetch yesterday + today across all leagues, then filter to WC matches
-  // (league=1 filter causes empty results; fetching all and filtering is reliable)
-  const now  = new Date();
-  const yesterday = new Date(now); yesterday.setDate(yesterday.getDate() - 1);
+  // Fetch today's fixtures only (yesterday fetch removed — live tracking only needs today)
   const fmt = d => d.toISOString().split('T')[0];
-
   let allFixtures = [];
   const fetchErrors = [];
-  for (const date of [fmt(now), fmt(yesterday)]) {
-    try {
-      const r = await fetch(`${BASE}/fixtures?date=${date}`, { headers });
-      const text = await r.text();
-      if (!r.ok) { fetchErrors.push(`${date}: HTTP ${r.status} ${text}`); continue; }
+  try {
+    const r = await fetch(`${BASE}/fixtures?date=${fmt(now)}`, { headers });
+    const text = await r.text();
+    if (!r.ok) { fetchErrors.push(`today: HTTP ${r.status} ${text}`); }
+    else {
       const data = JSON.parse(text);
-      // Keep only World Cup matches (league id 1)
-      const wc = (data.response || []).filter(f => f.league?.id === 1);
-      allFixtures = allFixtures.concat(wc);
-    } catch (e) {
-      fetchErrors.push(`${date}: ${e.message}`);
+      allFixtures = (data.response || []).filter(f => f.league?.id === 1);
     }
+  } catch (e) {
+    fetchErrors.push(`today: ${e.message}`);
   }
 
   // Debug: also fetch today without league filter + search for WC league

@@ -8,7 +8,7 @@
   "crons": [
     {
       "path": "/api/sync-scores",
-      "schedule": "*/2 * * * *"
+      "schedule": "*/5 * * * *"
     }
   ]
 }
