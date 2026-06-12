@@ -422,7 +422,7 @@ export const LOCK_WINDOWS = (function () {
   const sfFirst    = firstKickoff(m => m.stage === "SF");
   const tpFirst    = firstKickoff(m => m.stage === "3RD");
   return {
-    MD1:    new Date("2026-06-11T19:30:00Z").getTime(), // 1:00 AM IST June 12
+    MD1:    new Date("2026-06-12T14:30:00Z").getTime(), // 8:00 PM IST June 12
     MD23:   md23First  ? md23First  - TWO_HOURS_MS : null,
     R32:    r32First   ? r32First   - TWO_HOURS_MS : null,
     R16:    r16First   ? r16First   - TWO_HOURS_MS : null,
