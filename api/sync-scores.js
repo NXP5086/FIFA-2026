@@ -63,26 +63,10 @@ const KICKOFFS = {
 const GROUP_WINDOW_MS = 2.75 * 60 * 60 * 1000; // 2h45m — group games can't go to ET
 const KO_WINDOW_MS    = 3.5  * 60 * 60 * 1000; // 3h30m — covers ET + penalties
 
-// api-football.com team name → our internal team code
-// Using names because the API's team.code field is unreliable across seasons
-const NAME_MAP = {
-  'Mexico': 'MEX', 'Canada': 'CAN', 'United States': 'USA', 'Argentina': 'ARG',
-  'Brazil': 'BRA', 'France': 'FRA', 'England': 'ENG', 'Spain': 'ESP',
-  'Germany': 'GER', 'Portugal': 'POR', 'Netherlands': 'NED', 'Belgium': 'BEL',
-  'Croatia': 'CRO', 'Uruguay': 'URU', 'Japan': 'JPN', 'South Korea': 'KOR',
-  'Korea Republic': 'KOR', 'Republic of Korea': 'KOR', 'Australia': 'AUS',
-  'Morocco': 'MAR', 'Senegal': 'SEN', 'Egypt': 'EGY', 'Ghana': 'GHA',
-  "Ivory Coast": 'CIV', "Cote d'Ivoire": 'CIV', "Côte d'Ivoire": 'CIV',
-  'Iran': 'IRN', 'IR Iran': 'IRN', 'Saudi Arabia': 'SAU', 'Qatar': 'QAT',
-  'Switzerland': 'SUI', 'Ecuador': 'ECU', 'Colombia': 'COL', 'New Zealand': 'NZL',
-  'Norway': 'NOR', 'Tunisia': 'TUN', 'South Africa': 'RSA', 'Czechia': 'CZE',
-  'Czech Republic': 'CZE', 'Bosnia': 'BIH', 'Bosnia and Herzegovina': 'BIH',
-  'Bosnia & Herzegovina': 'BIH', 'Scotland': 'SCO', 'Haiti': 'HAI',
-  'Paraguay': 'PAR', 'Turkey': 'TUR', 'Turkiye': 'TUR', 'Türkiye': 'TUR',
-  'Curacao': 'CUW', 'Curaçao': 'CUW', 'Sweden': 'SWE', 'Cape Verde': 'CPV',
-  'Iraq': 'IRQ', 'Austria': 'AUT', 'Algeria': 'ALG', 'Jordan': 'JOR',
-  'Uzbekistan': 'UZB', 'DR Congo': 'COD', 'Congo DR': 'COD',
-  'Democratic Republic of Congo': 'COD', 'Panama': 'PAN',
+// ESPN team abbreviation → our internal team code (only where they differ)
+const ESPN_MAP = {
+  'IRI': 'IRN',  // Iran (ESPN sometimes uses IRI)
+  'KSA': 'SAU',  // Saudi Arabia (ESPN uses KSA, we use SAU)
 };
 
 // Group-stage match index: "HOME-AWAY" → our internal match ID
@@ -135,11 +119,16 @@ function resolveMatchId(homeCode, awayCode, kickoffDate) {
   return null;
 }
 
-// api-football.com status short codes
-const LIVE_STATUS   = new Set(['1H', '2H', 'HT', 'ET', 'BT', 'P', 'INT', 'LIVE']);
-const FINISH_STATUS = new Set(['FT', 'AET', 'PEN']);
-// Map API finish status → our ending code
-const ENDING_MAP = { FT: 'NT', AET: 'ET', PEN: 'PENS' };
+// Derive ending type from ESPN status name
+function getEnding(statusName) {
+  const n = statusName.toUpperCase();
+  if (n.includes('PENALT') || n.includes('SHOOTOUT')) return 'PENS';
+  if (n.includes('EXTRA') || n.includes('AET') || n.includes('OVERTIME')) return 'ET';
+  return 'NT';
+}
+
+const ESPN_BASE = 'https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard';
+const fmtDate = d => d.toISOString().split('T')[0].replace(/-/g, '');
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -148,12 +137,11 @@ export default async function handler(req, res) {
 
   const debug = req.query?.debug === '1';
 
-  const apiKey          = process.env.API_FOOTBALL_KEY;
   const supabaseUrl     = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
   const supabaseService = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-  if (!apiKey || !supabaseUrl || !supabaseService) {
-    return res.status(500).json({ error: 'Missing env vars: API_FOOTBALL_KEY, SUPABASE_URL/VITE_SUPABASE_URL, SUPABASE_SERVICE_KEY/SUPABASE_SERVICE_ROLE_KEY' });
+  if (!supabaseUrl || !supabaseService) {
+    return res.status(500).json({ error: 'Missing env vars: SUPABASE_URL/VITE_SUPABASE_URL, SUPABASE_SERVICE_KEY/SUPABASE_SERVICE_ROLE_KEY' });
   }
 
   const supabase = createClient(supabaseUrl, supabaseService);
@@ -187,88 +175,89 @@ export default async function handler(req, res) {
     return res.status(200).json({ updated: 0, skipped: true, reason: 'all in-window matches already final' });
   }
 
-  const BASE = 'https://v3.football.api-sports.io';
-  const headers = { 'x-apisports-key': apiKey };
-
-  // Fetch today's fixtures only (yesterday fetch removed — live tracking only needs today)
-  const fmt = d => d.toISOString().split('T')[0];
-  let allFixtures = [];
+  // Fetch ESPN scoreboard for today and yesterday (covers games that kicked off before UTC midnight).
+  const yesterday = new Date(nowMs - 24 * 60 * 60 * 1000);
+  let allEvents = [];
   const fetchErrors = [];
-  try {
-    const r = await fetch(`${BASE}/fixtures?date=${fmt(now)}`, { headers });
-    const text = await r.text();
-    if (!r.ok) { fetchErrors.push(`today: HTTP ${r.status} ${text}`); }
-    else {
-      const data = JSON.parse(text);
-      allFixtures = (data.response || []).filter(f => f.league?.id === 1);
+
+  for (const d of [yesterday, now]) {
+    try {
+      const r = await fetch(`${ESPN_BASE}?dates=${fmtDate(d)}`);
+      if (!r.ok) { fetchErrors.push(`ESPN ${fmtDate(d)}: HTTP ${r.status}`); continue; }
+      const data = await r.json();
+      allEvents.push(...(data.events || []));
+    } catch (e) {
+      fetchErrors.push(`ESPN ${fmtDate(d)}: ${e.message}`);
     }
-  } catch (e) {
-    fetchErrors.push(`today: ${e.message}`);
   }
 
-  // Debug: also fetch today without league filter + search for WC league
   if (debug) {
-    const fmt2 = d => d.toISOString().split('T')[0];
-    const [leagueRes, todayRes] = await Promise.all([
-      fetch(`${BASE}/leagues?name=World Cup&season=2026`, { headers }).then(r => r.json()).catch(e => ({ error: e.message })),
-      fetch(`${BASE}/fixtures?date=${fmt2(now)}`, { headers }).then(r => r.json()).catch(e => ({ error: e.message })),
-    ]);
     return res.status(200).json({
-      // What the league search returned (shows correct league ID)
-      wc_league_search: leagueRes?.response?.map(l => ({ id: l.league?.id, name: l.league?.name, season: l.seasons?.at(-1)?.year })),
-      // All fixtures today across all leagues — look for MEX/RSA here
-      today_all_leagues: {
-        total: todayRes?.response?.length ?? 0,
-        wc_only: todayRes?.response
-          ?.filter(f => f.league?.name?.toLowerCase().includes('world'))
-          ?.map(f => ({ leagueId: f.league?.id, leagueName: f.league?.name, home: f.teams?.home?.name, away: f.teams?.away?.name, status: f.fixture?.status?.short })),
-      },
-      // Original league=1 result
-      league1_fixtures: allFixtures.map(f => ({
-        date: f.fixture?.date, status: f.fixture?.status?.short,
-        homeName: f.teams?.home?.name, awayName: f.teams?.away?.name,
-        goals: f.goals,
-      })),
+      fetchErrors,
+      events: allEvents.map(ev => {
+        const comp = ev.competitions[0];
+        const home = comp.competitors.find(c => c.homeAway === 'home');
+        const away = comp.competitors.find(c => c.homeAway === 'away');
+        return {
+          name: ev.name, date: ev.date,
+          statusName: comp.status.type.name,
+          state: comp.status.type.state,
+          displayClock: comp.status.displayClock,
+          homeAbbr: home?.team?.abbreviation, homeScore: home?.score,
+          awayAbbr: away?.team?.abbreviation, awayScore: away?.score,
+        };
+      }),
     });
   }
 
   const upserts = [];
   const skipped = [];
 
-  for (const f of allFixtures) {
-    const statusShort = f.fixture?.status?.short;
+  for (const event of allEvents) {
+    const comp       = event.competitions[0];
+    const statusType = comp.status.type;
+    const state      = statusType.state; // 'pre' | 'in' | 'post'
 
-    if (!LIVE_STATUS.has(statusShort) && !FINISH_STATUS.has(statusShort)) continue;
+    if (state !== 'in' && state !== 'post') continue;
 
-    // Map team names → our internal codes
-    const homeCode = NAME_MAP[f.teams?.home?.name];
-    const awayCode = NAME_MAP[f.teams?.away?.name];
+    const home = comp.competitors.find(c => c.homeAway === 'home');
+    const away = comp.competitors.find(c => c.homeAway === 'away');
+    if (!home || !away) continue;
+
+    const homeAbbr = home.team?.abbreviation;
+    const awayAbbr = away.team?.abbreviation;
+    const homeCode = ESPN_MAP[homeAbbr] ?? homeAbbr;
+    const awayCode = ESPN_MAP[awayAbbr] ?? awayAbbr;
+
     if (!homeCode || !awayCode) {
-      skipped.push({ reason: 'unknown team name', home: f.teams?.home?.name, away: f.teams?.away?.name });
+      skipped.push({ reason: 'missing abbreviation', home: homeAbbr, away: awayAbbr });
       continue;
     }
 
-    const matchId = resolveMatchId(homeCode, awayCode, f.fixture?.date);
+    const matchId = resolveMatchId(homeCode, awayCode, event.date);
     if (!matchId) {
-      skipped.push({ reason: 'no match id', home: homeCode, away: awayCode });
+      skipped.push({ reason: 'no match id', home: homeCode, away: awayCode, date: event.date });
       continue;
     }
 
     const isKO     = matchId.startsWith('M');
-    const liveHome = f.goals?.home ?? 0;
-    const liveAway = f.goals?.away ?? 0;
+    const homeScore = parseInt(home.score ?? '0', 10);
+    const awayScore = parseInt(away.score ?? '0', 10);
 
     const row = { match_id: matchId };
 
-    if (FINISH_STATUS.has(statusShort)) {
-      const ending = ENDING_MAP[statusShort] || 'NT';
-      // For penalty shootouts, store the shootout score (not the match score)
-      const finalHome = statusShort === 'PEN'
-        ? (f.score?.penalty?.home ?? liveHome)
-        : (f.score?.fulltime?.home ?? liveHome);
-      const finalAway = statusShort === 'PEN'
-        ? (f.score?.penalty?.away ?? liveAway)
-        : (f.score?.fulltime?.away ?? liveAway);
+    if (state === 'post') {
+      const ending = getEnding(statusType.name);
+
+      let finalHome = homeScore;
+      let finalAway = awayScore;
+      if (ending === 'PENS') {
+        // ESPN stores the penalty shootout score in a linescore period
+        const penHome = home.linescores?.find(l => l.type === 'penalty' || l.abbreviation === 'P');
+        const penAway = away.linescores?.find(l => l.type === 'penalty' || l.abbreviation === 'P');
+        if (penHome?.value != null) finalHome = parseInt(penHome.value, 10);
+        if (penAway?.value != null) finalAway = parseInt(penAway.value, 10);
+      }
 
       row.status      = 'final';
       row.home_score  = finalHome;
@@ -276,14 +265,13 @@ export default async function handler(req, res) {
       row.live_minute = null;
       if (isKO) row.ending = ending;
     } else {
-      // Live match
+      const minute = parseInt(comp.status.displayClock, 10);
       row.status      = 'live';
-      row.home_score  = liveHome;
-      row.away_score  = liveAway;
-      row.live_minute = f.fixture?.status?.elapsed ?? null;
+      row.home_score  = homeScore;
+      row.away_score  = awayScore;
+      row.live_minute = Number.isNaN(minute) ? null : minute;
     }
 
-    // KO matches: store team codes so bracket populates once known
     if (isKO) {
       row.home_code = homeCode;
       row.away_code = awayCode;
@@ -306,5 +294,6 @@ export default async function handler(req, res) {
     updated: upserts.length,
     matches: upserts.map(u => `${u.match_id} (${u.status})`),
     skipped,
+    fetchErrors,
   });
 }
