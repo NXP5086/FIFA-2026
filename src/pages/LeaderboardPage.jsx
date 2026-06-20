@@ -93,23 +93,6 @@ function LeaderboardPage({ activeUserId, predictions, awardPredictions, awardWin
     }).sort((a, b) => b.best - a.best).slice(0, 3);
   }, [predictions, MATCHES]);
 
-  // Biggest single-match haul
-  const biggestHaul = useMemo(() => {
-    let best = { pts: 0 };
-    MATCHES.filter(m => m.result).forEach(m => {
-      USERS.forEach(u => {
-        const p = predictions[`${u.id}:${m.id}`];
-        if (!p || !p.submitted || p.home === null || p.away === null) return;
-        const s = isKnockout(m)
-          ? scoreKnockoutPrediction(p, m.result)
-          : scorePrediction(p, m.result);
-        if (s && s.pts > best.pts) {
-          best = { pts: s.pts, user: u, match: m, pred: p };
-        }
-      });
-    });
-    return best;
-  }, [predictions, MATCHES]);
 
   return (
     <>
@@ -280,21 +263,6 @@ function LeaderboardPage({ activeUserId, predictions, awardPredictions, awardWin
             </div>
           </div>
 
-          {biggestHaul.pts > 0 && (
-            <div className="side-card">
-              <div className="side-title">Biggest Haul</div>
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <Avatar user={biggestHaul.user} size={40} />
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: 15 }}>{biggestHaul.user.name}</div>
-                  <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--ink-3)", letterSpacing: "0.1em", textTransform: "uppercase", marginTop: 2 }}>
-                    {TEAMS[biggestHaul.match.home].code} {biggestHaul.pred.home}–{biggestHaul.pred.away} {TEAMS[biggestHaul.match.away].code}
-                  </div>
-                </div>
-                <div style={{ marginLeft: "auto" }} className="points-pill">+{biggestHaul.pts}</div>
-              </div>
-            </div>
-          )}
 
           <div className="side-card">
             <div className="side-title">Tournament</div>
