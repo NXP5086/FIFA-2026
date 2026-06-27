@@ -108,10 +108,14 @@ function AppShell() {
       .finally(() => setLoading(false));
   }, [profile]);
 
-  // Call the Vercel sync-scores function, then refresh from Supabase
+  // Call sync-scores (live/final) + sync-bracket (upcoming KO teams) in parallel,
+  // then refresh from Supabase so all clients see updated bracket and scores.
   const syncScores = useCallback(async () => {
     try {
-      await fetch('/api/sync-scores');
+      await Promise.all([
+        fetch('/api/sync-scores'),
+        fetch('/api/sync-bracket'),
+      ]);
     } catch {}
     const { data } = await supabase.from('match_results').select('*');
     if (data) {

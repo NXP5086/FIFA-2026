@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { supabase } from '../lib/supabase.js';
 import { MATCHES, TEAMS, AWARDS, isKnockout, STAGE_LABELS } from '../lib/data.js';
 import { fmtDateShort } from '../lib/format.js';
@@ -13,6 +13,22 @@ function AdminPage({ matchResults, awardWinners = {} }) {
   const [filter, setFilter] = useState('live-upcoming');
   const [saving, setSaving] = useState(null);
   const [saved, setSaved]   = useState(null);
+  const [bracketSyncing, setBracketSyncing] = useState(false);
+  const [bracketResult,  setBracketResult]  = useState(null);
+
+  const syncBracket = useCallback(async () => {
+    setBracketSyncing(true);
+    setBracketResult(null);
+    try {
+      const res  = await fetch('/api/sync-bracket');
+      const json = await res.json();
+      setBracketResult(json);
+    } catch (e) {
+      setBracketResult({ error: e.message });
+    } finally {
+      setBracketSyncing(false);
+    }
+  }, []);
 
   const matches = useMemo(() => {
     return MATCHES.filter(m => {
@@ -65,6 +81,46 @@ function AdminPage({ matchResults, awardWinners = {} }) {
             {label}
           </button>
         ))}
+      </div>
+
+      {/* Bracket sync panel */}
+      <div className="admin-winners-panel" style={{ marginBottom: 24 }}>
+        <div className="admin-winners-head">
+          <span className="admin-winners-title">Knockout Bracket Teams</span>
+          <span className="admin-winners-sub">
+            Pulls real team codes from ESPN for all upcoming R32–Final matches and writes them to Supabase —
+            unlocking predictions for all participants once the group stage is decided.
+            Also runs automatically every 2 min via Sync Now.
+          </span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', padding: '0 16px 16px' }}>
+          <button
+            type="button"
+            className="submit-btn"
+            onClick={syncBracket}
+            disabled={bracketSyncing}
+          >
+            {bracketSyncing ? 'Syncing…' : 'Sync Bracket Now →'}
+          </button>
+          {bracketResult && !bracketResult.error && (
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--grass)' }}>
+              ✓ {bracketResult.updated} match{bracketResult.updated !== 1 ? 'es' : ''} updated
+              {bracketResult.matches?.length > 0 && (
+                <span style={{ color: 'var(--ink-3)', marginLeft: 8 }}>
+                  ({bracketResult.matches.join(', ')})
+                </span>
+              )}
+              {bracketResult.updated === 0 && bracketResult.message && (
+                <span style={{ color: 'var(--ink-3)', marginLeft: 4 }}>— {bracketResult.message}</span>
+              )}
+            </span>
+          )}
+          {bracketResult?.error && (
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--heat)' }}>
+              Error: {bracketResult.error}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Award Winners Section */}
