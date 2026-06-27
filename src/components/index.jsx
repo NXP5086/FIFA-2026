@@ -178,8 +178,8 @@ function TopBar({ profile, onLogout, view, setView, isAdmin }) {
 
 // ---------- match card ----------
 function MatchCard({ match, prediction, onPredict, locked: lockedProp, nowMs }) {
-  const home = TEAMS[match.home];
-  const away = TEAMS[match.away];
+  const home = TEAMS[match.home] ?? { code: match.home, name: match.home };
+  const away = TEAMS[match.away] ?? { code: match.away, name: match.away };
   const venue = VENUES[match.venue];
   const isFinal = !!match.result;
   const isLive = !!match.live && !isFinal;

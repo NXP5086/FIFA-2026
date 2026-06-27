@@ -42,8 +42,8 @@ function SchedulePage({ activeUserId, predictions, onPredict, matches: MATCHES, 
       if (statusFilter === "UPCOMING" && m.result) return false;
       if (search) {
         const q = search.toLowerCase();
-        const h = TEAMS[m.home];
-        const a = TEAMS[m.away];
+        const h = TEAMS[m.home] ?? { code: m.home, name: m.home };
+        const a = TEAMS[m.away] ?? { code: m.away, name: m.away };
         if (!h.name.toLowerCase().includes(q)
           && !a.name.toLowerCase().includes(q)
           && !h.code.toLowerCase().includes(q)

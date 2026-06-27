@@ -5,8 +5,14 @@ const fmtDate = d => d.toISOString().split('T')[0].replace(/-/g, '');
 
 // ESPN team abbreviation → our internal team code (only where they differ)
 const ESPN_MAP = {
-  'IRI': 'IRN',
-  'KSA': 'SAU',
+  'IRI': 'IRN',   // Iran
+  'KSA': 'SAU',   // Saudi Arabia
+  'SAF': 'RSA',   // South Africa
+  'CUR': 'CUW',   // Curaçao
+  'CVI': 'CPV',   // Cape Verde
+  'DRC': 'COD',   // DR Congo
+  'CGO': 'COD',   // DR Congo (alt)
+  'BOS': 'BIH',   // Bosnia & Herzegovina
 };
 
 // All KO match kickoffs (UTC) → internal match ID
@@ -41,6 +47,8 @@ function resolveKoMatchId(kickoffDate) {
 }
 
 export default async function handler(req, res) {
+  const debug = req.query.debug === '1';
+
   const supabaseUrl     = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
   const supabaseService = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!supabaseUrl || !supabaseService) {
@@ -70,6 +78,26 @@ export default async function handler(req, res) {
       const data = await r.json();
       allEvents.push(...(data.events || []));
     } catch {}
+  }
+
+  // Debug mode: return raw ESPN data without writing to DB
+  if (debug) {
+    return res.status(200).json({
+      fetched_dates: datesToFetch,
+      events: allEvents.map(ev => {
+        const comp = ev.competitions[0];
+        const home = comp.competitors.find(c => c.homeAway === 'home');
+        const away = comp.competitors.find(c => c.homeAway === 'away');
+        return {
+          name: ev.name,
+          date: ev.date,
+          state: comp.status.type.state,
+          homeAbbr: home?.team?.abbreviation,
+          awayAbbr: away?.team?.abbreviation,
+          resolvedMatchId: resolveKoMatchId(ev.date),
+        };
+      }),
+    });
   }
 
   const candidates = [];
