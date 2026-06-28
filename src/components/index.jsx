@@ -199,6 +199,8 @@ function MatchCard({ match, prediction, onPredict, locked: lockedProp, nowMs }) 
     : false;
   const locked = lockedProp || timeLocked;
   const liveOrFinal = isFinal ? match.result : (isLive ? match.live.score : null);
+  // KO finals store result as { score: [h,a], ending } — unwrap to a plain [h,a] for display
+  const scoreArr = liveOrFinal?.score ?? liveOrFinal;
   const points = isFinal && prediction
     ? (isKO ? scoreKnockoutPrediction(prediction, match.result)
             : scorePrediction(prediction, match.result))
@@ -300,9 +302,9 @@ function MatchCard({ match, prediction, onPredict, locked: lockedProp, nowMs }) 
         {isFinal || isLive ? (
           <div className={`score-input final ${isLive ? "live" : ""}`}>
             <div className="score-row">
-              <div className="actual">{liveOrFinal[0]}</div>
+              <div className="actual">{scoreArr?.[0]}</div>
               <span className="dash">–</span>
-              <div className="actual">{liveOrFinal[1]}</div>
+              <div className="actual">{scoreArr?.[1]}</div>
             </div>
             <div className="label">{isLive ? "LIVE" : "FINAL"}</div>
           </div>
