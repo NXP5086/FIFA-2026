@@ -423,7 +423,7 @@ export const LOCK_WINDOWS = (function () {
   return {
     MD1:    new Date("2026-06-12T14:30:00Z").getTime(), // 8:00 PM IST June 12
     MD23:   new Date("2026-06-24T18:00:00Z").getTime(), // 11:30 PM IST June 24
-    R32:    r32First   ?? null,                         // locks at kickoff of M73 (12:30 AM IST June 29)
+    R32:    new Date("2026-06-28T19:30:00Z").getTime(), // 1:00 AM IST June 29
     R16:    r16First   ? r16First   - TWO_HOURS_MS : null,
     QF:     qfFirst    ? qfFirst    - TWO_HOURS_MS : null,
     SF:     sfFirst    ? sfFirst    - TWO_HOURS_MS : null,
