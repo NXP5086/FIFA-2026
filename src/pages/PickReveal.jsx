@@ -42,8 +42,8 @@ function fmtPick(pred, match) {
   const isKO = isKnockout(match);
   let s = `${pred.home}–${pred.away}`;
   if (isKO && pred.ending) {
-    const tag = pred.ending === "PENS" ? "P" : pred.ending === "ET" ? "ET" : "";
-    if (tag) s += `\u2009${tag}`;
+    const tag = pred.ending === "PENS" ? "P" : pred.ending === "ET" ? "ET" : "FT";
+    s += `\u2009${tag}`;
   }
   return s;
 }
@@ -94,7 +94,7 @@ function PickReveal({ predictions, awardPredictions, awardWinners = {}, activeUs
           <h2 className="reveal-title">Who called what.</h2>
         </div>
         <div className="reveal-note">
-          Each round unlocks here the moment its picks auto-lock — 2 hours before its first match.
+          Each round unlocks here the moment its picks auto-lock.
         </div>
       </div>
 
@@ -152,6 +152,7 @@ function pickLabel(pred, match) {
   if (isKnockout(match) && pred.ending) {
     if (pred.ending === "PENS") score += " P";
     else if (pred.ending === "ET") score += " ET";
+    else score += " FT";
   }
   return { winner, score, isDraw };
 }
