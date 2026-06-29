@@ -45,12 +45,14 @@ function LeaderboardPage({ activeUserId, predictions, awardPredictions, awardWin
         if (earned > 0) { awardsHit++; awardsPts += earned; }
       });
       pts += awardsPts;
-      // Provisional points from in-progress matches (+3 outcome / +5 exact)
+      // Provisional points from in-progress matches
       let livePts = 0;
       liveMatchesList.forEach(m => {
         const p = predictions[`${u.id}:${m.id}`];
         if (!p || !p.submitted || p.home === null || p.away === null) return;
-        const s = scorePrediction(p, m.live.score);
+        const s = isKnockout(m)
+          ? scoreKnockoutPrediction(p, { score: m.live.score, ending: p.ending ?? 'NT' })
+          : scorePrediction(p, m.live.score);
         if (s) livePts += s.pts;
       });
       return {
