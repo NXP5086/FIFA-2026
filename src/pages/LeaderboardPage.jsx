@@ -51,7 +51,7 @@ function LeaderboardPage({ activeUserId, predictions, awardPredictions, awardWin
         const p = predictions[`${u.id}:${m.id}`];
         if (!p || !p.submitted || p.home === null || p.away === null) return;
         const s = isKnockout(m)
-          ? scoreKnockoutPrediction(p, { score: m.live.score, ending: p.ending ?? 'NT' })
+          ? scoreKnockoutPrediction(p, { score: m.live.score, ending: 'NT' })
           : scorePrediction(p, m.live.score);
         if (s) livePts += s.pts;
       });

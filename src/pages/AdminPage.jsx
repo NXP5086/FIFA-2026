@@ -145,28 +145,39 @@ function AdminPage({ matchResults, awardWinners = {} }) {
 function AdminMatchCard({ match, result, onSave, saving, saved }) {
   const isKO = isKnockout(match);
   const isTBD = match.home === 'TBD' || match.away === 'TBD';
-  const current = result ?? { status: 'upcoming', home_score: null, away_score: null, ending: null, live_minute: null };
+  const current = result ?? { status: 'upcoming', home_score: null, away_score: null, ending: null, live_minute: null, home_code: null, away_code: null };
 
-  const [status,  setStatus]  = useState(current.status);
-  const [home,    setHome]    = useState(current.home_score ?? '');
-  const [away,    setAway]    = useState(current.away_score ?? '');
-  const [ending,  setEnding]  = useState(current.ending ?? 'NT');
-  const [minute,  setMinute]  = useState(current.live_minute ?? '');
+  const [status,   setStatus]   = useState(current.status);
+  const [home,     setHome]     = useState(current.home_score ?? '');
+  const [away,     setAway]     = useState(current.away_score ?? '');
+  const [ending,   setEnding]   = useState(current.ending ?? 'NT');
+  const [minute,   setMinute]   = useState(current.live_minute ?? '');
+  const [homeCode, setHomeCode] = useState(current.home_code ?? '');
+  const [awayCode, setAwayCode] = useState(current.away_code ?? '');
 
-  const homeTeam = isTBD ? { code: '?', name: match.homeLabel } : TEAMS[match.home];
-  const awayTeam = isTBD ? { code: '?', name: match.awayLabel } : TEAMS[match.away];
+  const homeTeam = isTBD
+    ? { code: current.home_code || '?', name: match.homeLabel ?? 'TBD' }
+    : (TEAMS[match.home] ?? { code: match.home, name: match.home });
+  const awayTeam = isTBD
+    ? { code: current.away_code || '?', name: match.awayLabel ?? 'TBD' }
+    : (TEAMS[match.away] ?? { code: match.away, name: match.away });
 
   const handleSubmit = (e) => {
     e.preventDefault();
     const h = parseInt(home, 10);
     const a = parseInt(away, 10);
-    onSave(match.id, {
+    const payload = {
       status,
       home_score: isNaN(h) ? null : h,
       away_score: isNaN(a) ? null : a,
       ending: (isKO && status === 'final') ? ending : null,
       live_minute: status === 'live' ? (parseInt(minute, 10) || null) : null,
-    });
+    };
+    if (isTBD) {
+      payload.home_code = homeCode.toUpperCase().trim() || null;
+      payload.away_code = awayCode.toUpperCase().trim() || null;
+    }
+    onSave(match.id, payload);
   };
 
   const statusColor = status === 'final' ? 'var(--grass)' : status === 'live' ? 'var(--heat)' : 'var(--ink-3)';
@@ -185,6 +196,28 @@ function AdminMatchCard({ match, result, onSave, saving, saved }) {
       </div>
 
       <div className="admin-card-body">
+        {/* Team codes — only for KO matches where static fixture is TBD */}
+        {isTBD && (
+          <div className="admin-field">
+            <label>Teams (3-letter codes)</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <input
+                type="text" maxLength={5}
+                value={homeCode} onChange={e => setHomeCode(e.target.value.toUpperCase())}
+                placeholder="e.g. BRA" className="admin-score-input"
+                style={{ width: 60, textTransform: 'uppercase' }}
+              />
+              <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, opacity: 0.4 }}>v</span>
+              <input
+                type="text" maxLength={5}
+                value={awayCode} onChange={e => setAwayCode(e.target.value.toUpperCase())}
+                placeholder="e.g. ARG" className="admin-score-input"
+                style={{ width: 60, textTransform: 'uppercase' }}
+              />
+            </div>
+          </div>
+        )}
+
         {/* Status */}
         <div className="admin-field">
           <label>Status</label>
